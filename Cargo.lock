@@ -30,7 +30,6 @@ name = "cudd"
 version = "0.1.0"
 dependencies = [
  "cudd-sys",
- "logic-form",
 ]
 
 [[package]]

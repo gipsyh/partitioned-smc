@@ -37,9 +37,3 @@ pub fn get_trans_bdd(aig: &Aig, cudd: &mut Cudd) -> DdNode {
     }
     bdd
 }
-
-pub fn post_image(cudd: &mut Cudd, bdd: &DdNode) -> DdNode {
-    let num_var = cudd.num_var() / 2;
-    let bdd = cudd.exist_abstract(bdd, 0..num_var);
-    cudd.swap_vars(&bdd, num_var..2 * num_var, 0..num_var)
-}
