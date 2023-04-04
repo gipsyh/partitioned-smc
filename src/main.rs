@@ -25,16 +25,25 @@ impl PartitionedSmc {
 
     pub fn pre_image(&mut self, bdd: &DdNode) -> DdNode {
         let num_var = self.cudd.num_var() / 2;
-        let bdd = self.cudd.swap_vars(&bdd, 0..num_var, num_var..2 * num_var);
+        let bdd = self.cudd.swap_vars(
+            &bdd,
+            (0..num_var).map(|x| x * 2),
+            (0..num_var).map(|x| x * 2 + 1),
+        );
         let bdd = bdd & &self.trans;
-        self.cudd.exist_abstract(&bdd, num_var..2 * num_var)
+        self.cudd
+            .exist_abstract(&bdd, (0..num_var).map(|x| x * 2 + 1))
     }
 
     pub fn post_image(&mut self, bdd: &DdNode) -> DdNode {
         let num_var = self.cudd.num_var() / 2;
         let bdd = bdd & &self.trans;
-        let bdd = self.cudd.exist_abstract(&bdd, 0..num_var);
-        self.cudd.swap_vars(&bdd, num_var..2 * num_var, 0..num_var)
+        let bdd = self.cudd.exist_abstract(&bdd, (0..num_var).map(|x| x * 2));
+        self.cudd.swap_vars(
+            &bdd,
+            (0..num_var).map(|x| x * 2 + 1),
+            (0..num_var).map(|x| x * 2),
+        )
     }
 
     fn reachable_state(&mut self, from: &[DdNode], forward: bool) -> Vec<DdNode> {
@@ -114,14 +123,16 @@ impl PartitionedSmc {
 fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/short/short-flat.smv").unwrap();
-    let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/examples/counter/10bit/counter-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp8-flat.smv").unwrap();
+    let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/abp4/abp4-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
     let smv_bdd = SmvBdd::new(&smv);
-    dbg!(&smv_bdd.trans);
-    dbg!(&smv_bdd.symbols);
-    dbg!(&smv_bdd.init);
+    // dbg!(&smv_bdd.trans);
+    // dbg!(&smv_bdd.symbols);
+    // dbg!(&smv_bdd.init);
     let mut fairness = Expr::LitExpr(true);
     for fair in smv.fairness.iter() {
         let fair = Expr::PrefixExpr(
@@ -140,6 +151,7 @@ fn main() {
             .unwrap();
         let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
         let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
+        dbg!(ba.num_state());
         let mut partitioned_smc = PartitionedSmc::new(
             cudd.clone(),
             smv_bdd.trans.clone(),
@@ -147,7 +159,9 @@ fn main() {
             ba,
         );
         let start = Instant::now();
-        dbg!(partitioned_smc.check());
+        for _ in 0..10 {
+            dbg!(partitioned_smc.check());
+        }
         println!("{:?}", start.elapsed());
     }
 }
