@@ -1,30 +1,48 @@
 mod automata;
 mod bdd;
+mod worker;
 
 use automata::BuchiAutomata;
 use cudd::{Cudd, DdNode};
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::{
+    mem::take,
     process::Command,
+    thread::spawn,
     time::{Duration, Instant},
 };
+use worker::Worker;
 
 struct PartitionedSmc {
     cudd: Cudd,
     trans: DdNode,
     init: DdNode,
     automata: BuchiAutomata,
+    workers: Vec<Worker>,
+    parallel: bool,
     and_time: Duration,
     image_time: Duration,
 }
 
 impl PartitionedSmc {
-    fn new(cudd: Cudd, trans: DdNode, init: DdNode, automata: BuchiAutomata) -> Self {
+    fn new(
+        cudd: Cudd,
+        trans: DdNode,
+        init: DdNode,
+        automata: BuchiAutomata,
+        parallel: bool,
+    ) -> Self {
+        let mut workers = Vec::new();
+        for _ in 0..automata.num_state() {
+            workers.push(Worker::new(&trans));
+        }
         Self {
             cudd,
             trans,
             init,
             automata,
+            workers,
+            parallel,
             and_time: Duration::default(),
             image_time: Duration::default(),
         }
@@ -53,6 +71,32 @@ impl PartitionedSmc {
         )
     }
 
+    fn parallel_image(&mut self, bdd: &[DdNode], pre: bool) -> Vec<DdNode> {
+        assert!(bdd.len() == self.workers.len());
+        let workers = take(&mut self.workers);
+        let mut joins = Vec::new();
+        let mut i = 0;
+        for mut worker in workers {
+            let bdd_clone = bdd[i].clone();
+            joins.push(spawn(move || {
+                let image = if pre {
+                    worker.pre_image(&bdd_clone)
+                } else {
+                    worker.post_image(&bdd_clone)
+                };
+                (image, worker)
+            }));
+            i += 1;
+        }
+        let mut images = Vec::new();
+        for join in joins {
+            let (image, worker) = join.join().unwrap();
+            self.workers.push(worker);
+            images.push(self.cudd.translocate(&image));
+        }
+        images
+    }
+
     fn reachable_state_image_first(
         &mut self,
         from: &[DdNode],
@@ -72,18 +116,27 @@ impl PartitionedSmc {
             y += 1;
             dbg!(y);
             let mut new_frontier = vec![self.cudd.constant(false); self.automata.num_state()];
+            let image = if self.parallel {
+                self.parallel_image(&frontier, !forward)
+            } else {
+                frontier
+                    .iter()
+                    .map(|x| {
+                        if forward {
+                            self.post_image(x)
+                        } else {
+                            self.pre_image(x)
+                        }
+                    })
+                    .collect()
+            };
             for i in 0..frontier.len() {
-                let image = if forward {
-                    self.post_image(&frontier[i])
-                } else {
-                    self.pre_image(&frontier[i])
-                };
                 for (next, label) in automata_trans[i].iter_mut() {
                     *label = label.as_ref() & !&reach[*next];
                     if let Some(constraint) = constraint {
                         *label = label.as_ref() & &constraint[*next];
                     }
-                    let update = &image & &label;
+                    let update = &image[i] & &label;
                     new_frontier[*next] = &new_frontier[*next] | &update;
                     reach[*next] = &reach[*next] | update;
                 }
@@ -117,12 +170,21 @@ impl PartitionedSmc {
                     tmp[*next] |= update;
                 }
             }
-            for i in 0..tmp.len() {
-                let update = if forward {
-                    self.post_image(&tmp[i])
-                } else {
-                    self.pre_image(&tmp[i])
-                } & !&reach[i];
+            let image = if self.parallel {
+                self.parallel_image(&tmp, !forward)
+            } else {
+                tmp.iter()
+                    .map(|x| {
+                        if forward {
+                            self.post_image(x)
+                        } else {
+                            self.pre_image(x)
+                        }
+                    })
+                    .collect()
+            };
+            for i in 0..image.len() {
+                let update = &image[i] & !&reach[i];
                 reach[i] |= &update;
                 new_frontier[i] |= update;
             }
@@ -139,13 +201,13 @@ impl PartitionedSmc {
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = self.cudd.constant(true);
         }
-        let candidate = self.reachable_state_propagate_first(&fair_states, true);
+        // let candidate = self.reachable_state_propagate_first(&fair_states, true);
         let mut x = 0;
         loop {
             x += 1;
             dbg!(x);
-            let backward = self.reachable_state_image_first(&fair_states, false, Some(&candidate));
-            // let backward = self.reachable_state_image_first(&fair_states, false, None);
+            // let backward = self.reachable_state_image_first(&fair_states, false, Some(&candidate));
+            let backward = self.reachable_state_image_first(&fair_states, false, None);
             let mut new_fair_sets = Vec::new();
             for i in 0..fair_states.len() {
                 new_fair_sets.push(&fair_states[i] & &backward[i]);
@@ -222,6 +284,7 @@ fn main() {
             smv_bdd.trans.clone(),
             smv_bdd.init.clone(),
             ba,
+            true,
         );
         let start = Instant::now();
         dbg!(partitioned_smc.check());
