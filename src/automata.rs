@@ -2,7 +2,7 @@ use cudd::{Cudd, DdNode};
 use logic_form::Expr;
 use nom::{
     bytes::complete::{tag, take_until},
-    character::complete::{line_ending, space0},
+    character::complete::{line_ending, multispace0, space0},
     multi::many1,
     sequence::{delimited, terminated},
     IResult,
@@ -70,6 +70,14 @@ fn parse_trans(input: &str) -> IResult<&str, (&str, &str)> {
 fn parse_state(input: &str) -> IResult<&str, (&str, Vec<(&str, &str)>)> {
     let (input, ident) = terminated(take_until(":"), tag(":"))(input)?;
     let (input, _) = skip_line(input)?;
+    if let Ok((input, _)) = delimited(
+        space0::<&str, nom::error::Error<&str>>,
+        tag("skip"),
+        multispace0,
+    )(input)
+    {
+        return Ok((input, (ident, vec![("(1)", ident)])));
+    }
     let (input, _) = skip_line(input)?;
     let (input, trans) = many1(parse_trans)(input)?;
     let (input, _) = skip_line(input)?;
@@ -83,11 +91,11 @@ impl BuchiAutomata {
         ident: &'a str,
     ) -> usize {
         map.get(ident)
-            .map(|x| *x)
+            .copied()
             .or_else(|| {
                 assert!(map.insert(ident, self.num_state()).is_none());
                 self.extend_to(self.num_state());
-                map.get(ident).map(|x| *x)
+                map.get(ident).copied()
             })
             .unwrap()
     }
@@ -117,7 +125,7 @@ impl BuchiAutomata {
                 }
                 let edge = Expr::from(edge);
                 let edge_bdd = edge.to_bdd(cudd, symbols);
-                cond = cond & !&edge_bdd;
+                cond &= !&edge_bdd;
                 ret.add_edge(state_id, dist, edge_bdd);
             }
             for i in 0..trans.len() {
@@ -132,18 +140,3 @@ impl BuchiAutomata {
         ret
     }
 }
-
-// pub fn counter(cudd: &mut Cudd) -> BuchiAutomata {
-//     let mut automata = BuchiAutomata::new(3);
-//     let bit0 = cudd.ith_var(0);
-//     let bit1 = cudd.ith_var(1);
-//     automata.add_edge(0, 0, &bit0 | &bit1);
-//     automata.add_edge(0, 1, !&bit0 & !&bit1);
-//     automata.add_edge(1, 0, &bit0 ^ &bit1);
-//     automata.add_edge(1, 1, !&bit0 & !&bit1);
-//     automata.add_edge(1, 2, bit0 & bit1);
-//     automata.add_edge(2, 2, cudd.constant(true));
-//     automata.add_init_state(0);
-//     automata.add_accepting_state(2);
-//     automata
-// }

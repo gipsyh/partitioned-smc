@@ -33,7 +33,7 @@ pub fn _get_trans_bdd(aig: &Aig, cudd: &mut Cudd) -> DdNode {
             next_bdd = !next_bdd;
         }
         let next_var_bdd = cudd.ith_var(i + aig.latchs.len());
-        bdd = bdd & !(next_bdd ^ next_var_bdd);
+        bdd &= !(next_bdd ^ next_var_bdd);
     }
     bdd
 }

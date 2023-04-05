@@ -4,13 +4,18 @@ mod bdd;
 use automata::BuchiAutomata;
 use cudd::{Cudd, DdNode};
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
-use std::{process::Command, time::Instant};
+use std::{
+    process::Command,
+    time::{Duration, Instant},
+};
 
 struct PartitionedSmc {
     cudd: Cudd,
     trans: DdNode,
     init: DdNode,
     automata: BuchiAutomata,
+    and_time: Duration,
+    image_time: Duration,
 }
 
 impl PartitionedSmc {
@@ -20,13 +25,15 @@ impl PartitionedSmc {
             trans,
             init,
             automata,
+            and_time: Duration::default(),
+            image_time: Duration::default(),
         }
     }
 
     pub fn pre_image(&mut self, bdd: &DdNode) -> DdNode {
         let num_var = self.cudd.num_var() / 2;
         let bdd = self.cudd.swap_vars(
-            &bdd,
+            bdd,
             (0..num_var).map(|x| x * 2),
             (0..num_var).map(|x| x * 2 + 1),
         );
@@ -46,36 +53,83 @@ impl PartitionedSmc {
         )
     }
 
-    fn reachable_state(&mut self, from: &[DdNode], forward: bool) -> Vec<DdNode> {
+    fn reachable_state_image_first(
+        &mut self,
+        from: &[DdNode],
+        forward: bool,
+        constraint: Option<&[DdNode]>,
+    ) -> Vec<DdNode> {
         assert!(from.len() == self.automata.num_state());
+        let mut automata_trans = if forward {
+            self.automata.forward.clone()
+        } else {
+            self.automata.backward.clone()
+        };
         let mut frontier = from.to_vec();
         let mut reach = vec![self.cudd.constant(false); self.automata.num_state()];
+        let mut y = 0;
         loop {
+            y += 1;
+            dbg!(y);
             let mut new_frontier = vec![self.cudd.constant(false); self.automata.num_state()];
             for i in 0..frontier.len() {
-                let (image, trans) = if forward {
-                    (
-                        self.post_image(&frontier[i]),
-                        self.automata.forward[i].iter(),
-                    )
+                let image = if forward {
+                    self.post_image(&frontier[i])
                 } else {
-                    (
-                        self.pre_image(&frontier[i]),
-                        self.automata.backward[i].iter(),
-                    )
+                    self.pre_image(&frontier[i])
                 };
-                for (next, label) in trans {
-                    let update = &image & label & !&reach[*next];
+                for (next, label) in automata_trans[i].iter_mut() {
+                    *label = label.as_ref() & !&reach[*next];
+                    if let Some(constraint) = constraint {
+                        *label = label.as_ref() & &constraint[*next];
+                    }
+                    let update = &image & &label;
                     new_frontier[*next] = &new_frontier[*next] | &update;
+                    reach[*next] = &reach[*next] | update;
                 }
             }
             if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
                 break;
             }
-            for i in 0..new_frontier.len() {
-                reach[i] = &reach[i] | &new_frontier[i];
-                frontier[i] = new_frontier[i].clone();
+            frontier = new_frontier;
+        }
+        reach
+    }
+
+    fn reachable_state_propagate_first(&mut self, from: &[DdNode], forward: bool) -> Vec<DdNode> {
+        assert!(from.len() == self.automata.num_state());
+        let automata_trans = if forward {
+            self.automata.forward.clone()
+        } else {
+            self.automata.backward.clone()
+        };
+        let mut frontier = from.to_vec();
+        let mut reach = vec![self.cudd.constant(false); self.automata.num_state()];
+        let mut y = 0;
+        loop {
+            y += 1;
+            dbg!(y);
+            let mut new_frontier = vec![self.cudd.constant(false); self.automata.num_state()];
+            let mut tmp = vec![self.cudd.constant(false); self.automata.num_state()];
+            for i in 0..frontier.len() {
+                for (next, label) in automata_trans[i].iter() {
+                    let update = &frontier[i] & label;
+                    tmp[*next] |= update;
+                }
             }
+            for i in 0..tmp.len() {
+                let update = if forward {
+                    self.post_image(&tmp[i])
+                } else {
+                    self.pre_image(&tmp[i])
+                } & !&reach[i];
+                reach[i] |= &update;
+                new_frontier[i] |= update;
+            }
+            if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
+                break;
+            }
+            frontier = new_frontier;
         }
         reach
     }
@@ -85,8 +139,13 @@ impl PartitionedSmc {
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = self.cudd.constant(true);
         }
+        let candidate = self.reachable_state_propagate_first(&fair_states, true);
+        let mut x = 0;
         loop {
-            let backward = self.reachable_state(&fair_states, false);
+            x += 1;
+            dbg!(x);
+            let backward = self.reachable_state_image_first(&fair_states, false, Some(&candidate));
+            // let backward = self.reachable_state_image_first(&fair_states, false, None);
             let mut new_fair_sets = Vec::new();
             for i in 0..fair_states.len() {
                 new_fair_sets.push(&fair_states[i] & &backward[i]);
@@ -101,13 +160,13 @@ impl PartitionedSmc {
 
     fn check(&mut self) -> bool {
         let fair_states = self.fair_states();
+        // dbg!(&fair_states);
+        dbg!("xxx");
         let mut reach = vec![self.cudd.constant(false); self.automata.num_state()];
         for init_state in self.automata.init_states.iter() {
-            for (next, label) in self.automata.forward[*init_state].iter() {
-                reach[*next] = &reach[*next] | &(label & &self.init);
-            }
+            reach[*init_state] |= &self.init;
         }
-        let forward = self.reachable_state(&reach, true);
+        let forward = self.reachable_state_propagate_first(&reach, true);
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
         }
@@ -116,7 +175,7 @@ impl PartitionedSmc {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
@@ -126,10 +185,15 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/examples/counter/10bit/counter-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp8-flat.smv").unwrap();
-    let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/abp4/abp4-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp4-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
+    let smv =
+        Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/production-cell/production-cell-flat.smv")
+    // .unwrap();
     let smv_bdd = SmvBdd::new(&smv);
+    dbg!(&smv_bdd.cudd);
     // dbg!(&smv_bdd.trans);
     // dbg!(&smv_bdd.symbols);
     // dbg!(&smv_bdd.init);
@@ -151,6 +215,7 @@ fn main() {
             .unwrap();
         let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
         let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
+        dbg!(smv_bdd.symbols.len());
         dbg!(ba.num_state());
         let mut partitioned_smc = PartitionedSmc::new(
             cudd.clone(),
@@ -159,9 +224,9 @@ fn main() {
             ba,
         );
         let start = Instant::now();
-        for _ in 0..10 {
-            dbg!(partitioned_smc.check());
-        }
+        dbg!(partitioned_smc.check());
+        dbg!(partitioned_smc.and_time);
+        dbg!(partitioned_smc.image_time);
         println!("{:?}", start.elapsed());
     }
 }
