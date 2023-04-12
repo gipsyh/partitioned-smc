@@ -26,6 +26,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cudd"
 version = "0.1.4"
 dependencies = [
@@ -111,6 +120,7 @@ dependencies = [
  "logic-form 0.1.1",
  "nom",
  "smv",
+ "sylvan",
 ]
 
 [[package]]
@@ -119,4 +129,21 @@ version = "0.1.0"
 dependencies = [
  "cudd",
  "nom",
+]
+
+[[package]]
+name = "sylvan"
+version = "0.1.0"
+dependencies = [
+ "sylvan-sys",
+]
+
+[[package]]
+name = "sylvan-sys"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6199a937c971cf380984d78fdb390670bcdc415ea9102df14ea99604bd6c6034"
+dependencies = [
+ "cmake",
+ "libc",
 ]

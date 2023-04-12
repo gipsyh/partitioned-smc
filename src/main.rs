@@ -1,5 +1,6 @@
 mod automata;
 mod bdd;
+mod util;
 mod worker;
 
 use automata::BuchiAutomata;
@@ -12,7 +13,10 @@ use std::{
     thread::spawn,
     time::{Duration, Instant},
 };
+use sylvan::Sylvan;
 use worker::Worker;
+
+use crate::util::trans_expr_to_ltl;
 
 struct PartitionedSmc {
     cudd: Cudd,
@@ -48,34 +52,6 @@ impl PartitionedSmc {
             image_time: Duration::default(),
         }
     }
-
-    // fn parallel_image(&mut self, bdd: &[DdNode], forward: bool) -> Vec<DdNode> {
-    //     assert!(bdd.len() == self.workers.len());
-    //     let workers = take(&mut self.workers);
-    //     let mut joins = Vec::new();
-    //     let mut i = 0;
-    //     let start = Instant::now();
-    //     for worker in workers {
-    //         let bdd_clone = bdd[i].clone();
-    //         joins.push(spawn(move || {
-    //             let image = if forward {
-    //                 worker.post_image(&bdd_clone)
-    //             } else {
-    //                 worker.pre_image(&bdd_clone)
-    //             };
-    //             (image, worker)
-    //         }));
-    //         i += 1;
-    //     }
-    //     let mut images = Vec::new();
-    //     for join in joins {
-    //         let (image, worker) = join.join().unwrap();
-    //         self.workers.push(worker);
-    //         images.push(self.cudd.translocate(&image));
-    //     }
-    //     self.image_time += start.elapsed();
-    //     images
-    // }
 
     fn reachable_state_image_first(
         &mut self,
@@ -245,6 +221,7 @@ impl PartitionedSmc {
 }
 
 fn main() {
+    Sylvan::init(0, 512);
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/short/short-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
@@ -253,17 +230,25 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp4-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
     // let smv =
-    //     Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
+    // Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
     // let smv =
     // Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
     let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/production-cell/production-cell-flat.smv")
     // .unwrap();
+    // let smv = Smv::from_file("../ATVA/trp/N12x/1/pltl-12-0-1-3-0-200000.smv").unwrap();
+
     let smv_bdd = SmvBdd::new(&smv, SmvTransBddMethod::Monolithic);
     // dbg!(&smv_bdd.cudd);
     // dbg!(&smv_bdd.trans);
     // dbg!(&smv_bdd.symbols);
-    dbg!(&smv_bdd.init);
+    // dbg!(&smv_bdd.init);
+    // dbg!(&smv.trans[]);
+    let mut trans_ltl = Expr::LitExpr(true);
+    for tran in &smv.trans[0..1] {
+        trans_ltl = trans_ltl & trans_expr_to_ltl(tran);
+    }
+    println!("{}", trans_ltl);
     let mut fairness = Expr::LitExpr(true);
     for fair in smv.fairness.iter() {
         let fair = Expr::PrefixExpr(
@@ -273,30 +258,32 @@ fn main() {
         fairness = fairness & fair;
     }
     let mut cudd = smv_bdd.cudd.clone();
-    // for _ in 0..5 {
-    for ltl in &smv.ltlspecs[..] {
-        println!("'{}'", !ltl.clone() & fairness.clone());
-        let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
-            .arg("-f")
-            .arg(format!("{}", !ltl.clone() & fairness.clone()))
-            .output()
-            .unwrap();
-        let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
-        let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
-        dbg!(smv_bdd.symbols.len());
-        dbg!(ba.num_state());
-        let mut partitioned_smc = PartitionedSmc::new(
-            cudd.clone(),
-            smv_bdd.trans.clone(),
-            smv_bdd.init.clone(),
-            ba,
-            true,
-        );
-        let start = Instant::now();
-        dbg!(partitioned_smc.check());
-        println!("{:?}", start.elapsed());
-        dbg!(partitioned_smc.and_time);
-        dbg!(partitioned_smc.image_time);
+
+    for _ in 0..5 {
+        for ltl in &smv.ltlspecs[..] {
+            let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
+            println!("'{}'", ltl);
+            let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
+                .arg("-f")
+                .arg(format!("{}", ltl))
+                .output()
+                .unwrap();
+            let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
+            let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
+            dbg!(smv_bdd.symbols.len());
+            dbg!(ba.num_state());
+            let mut partitioned_smc = PartitionedSmc::new(
+                cudd.clone(),
+                smv_bdd.trans.clone(),
+                smv_bdd.init.clone(),
+                ba,
+                true,
+            );
+            let start = Instant::now();
+            dbg!(partitioned_smc.check());
+            println!("{:?}", start.elapsed());
+            dbg!(partitioned_smc.and_time);
+            dbg!(partitioned_smc.image_time);
+        }
     }
-    // }
 }

@@ -43,16 +43,6 @@ impl Worker {
         }
     }
 
-    pub fn pre_image(&self, bdd: &DdNode) -> DdNode {
-        let bdd = self.trans.cudd.translocate(bdd);
-        self.trans.pre_image(&bdd)
-    }
-
-    pub fn post_image(&self, bdd: &DdNode) -> DdNode {
-        let bdd = self.trans.cudd.translocate(bdd);
-        self.trans.post_image(&bdd)
-    }
-
     pub fn start(&mut self, forward: bool, init: DdNode, constraint: Option<DdNode>) -> DdNode {
         let mut reach = self.trans.cudd.constant(false);
         let mut init = self.trans.cudd.translocate(&init);
@@ -71,13 +61,15 @@ impl Worker {
             )
         };
         if !forward && init != self.trans.cudd.constant(false) {
-            init = self.pre_image(&init);
+            init = self.trans.pre_image(&init);
         }
-        for (sender, label) in senders {
-            let send = &init & label;
-            if send != self.trans.cudd.constant(false) {
-                sender.send(Some(send)).unwrap();
-                self.active.lock().unwrap().add_assign(1);
+        if init != self.trans.cudd.constant(false) {
+            for (sender, label) in senders {
+                let send = &init & label;
+                if send != self.trans.cudd.constant(false) {
+                    sender.send(Some(send)).unwrap();
+                    self.active.lock().unwrap().add_assign(1);
+                }
             }
         }
         let mut first_quit = false;
@@ -105,9 +97,9 @@ impl Worker {
                     }
                     if update != self.trans.cudd.constant(false) {
                         let mut update = if forward {
-                            self.post_image(&update)
+                            self.trans.post_image(&update)
                         } else {
-                            self.pre_image(&update)
+                            self.trans.pre_image(&update)
                         };
                         if forward {
                             update &= !&reach;
