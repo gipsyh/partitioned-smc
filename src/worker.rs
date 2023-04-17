@@ -1,5 +1,5 @@
 use crate::automata::BuchiAutomata;
-use cudd::DdNode;
+use cudd::Bdd;
 use smv::bdd::SmvTransBdd;
 use std::{
     ops::{AddAssign, SubAssign},
@@ -11,24 +11,24 @@ use std::{
 
 pub struct Worker {
     pub trans: SmvTransBdd,
-    forward_sender: Vec<(Sender<Option<DdNode>>, DdNode)>,
-    forward_receiver: Receiver<Option<DdNode>>,
-    backward_sender: Vec<(Sender<Option<DdNode>>, DdNode)>,
-    backward_receiver: Receiver<Option<DdNode>>,
-    forward_quit_signal: Sender<Option<DdNode>>,
-    backward_quit_signal: Sender<Option<DdNode>>,
+    forward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
+    forward_receiver: Receiver<Option<Bdd>>,
+    backward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
+    backward_receiver: Receiver<Option<Bdd>>,
+    forward_quit_signal: Sender<Option<Bdd>>,
+    backward_quit_signal: Sender<Option<Bdd>>,
     active: Arc<Mutex<usize>>,
 }
 
 impl Worker {
     pub fn new(
         trans: SmvTransBdd,
-        forward_sender: Vec<(Sender<Option<DdNode>>, DdNode)>,
-        forward_receiver: Receiver<Option<DdNode>>,
-        backward_sender: Vec<(Sender<Option<DdNode>>, DdNode)>,
-        backward_receiver: Receiver<Option<DdNode>>,
-        forward_quit_signal: Sender<Option<DdNode>>,
-        backward_quit_signal: Sender<Option<DdNode>>,
+        forward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
+        forward_receiver: Receiver<Option<Bdd>>,
+        backward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
+        backward_receiver: Receiver<Option<Bdd>>,
+        forward_quit_signal: Sender<Option<Bdd>>,
+        backward_quit_signal: Sender<Option<Bdd>>,
         active: Arc<Mutex<usize>>,
     ) -> Self {
         Self {
@@ -43,7 +43,7 @@ impl Worker {
         }
     }
 
-    pub fn start(&mut self, forward: bool, init: DdNode, constraint: Option<DdNode>) -> DdNode {
+    pub fn start(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
         let mut reach = self.trans.cudd.constant(false);
         let mut init = self.trans.cudd.translocate(&init);
         let constraint = constraint.map(|bdd| self.trans.cudd.translocate(&bdd));

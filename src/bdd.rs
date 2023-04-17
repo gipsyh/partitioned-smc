@@ -1,7 +1,7 @@
 use aig::{Aig, AigNodeId};
-use cudd::{Cudd, DdNode};
+use cudd::{Cudd, Bdd};
 
-fn _rec_get_trans_bdd(aig: &Aig, node: AigNodeId, cudd: &mut Cudd) -> DdNode {
+fn _rec_get_trans_bdd(aig: &Aig, node: AigNodeId, cudd: &mut Cudd) -> Bdd {
     if aig.nodes[node].is_latch_input() {
         let index = aig
             .latchs
@@ -25,7 +25,7 @@ fn _rec_get_trans_bdd(aig: &Aig, node: AigNodeId, cudd: &mut Cudd) -> DdNode {
     fanin0_bdd & fanin1_bdd
 }
 
-pub fn _get_trans_bdd(aig: &Aig, cudd: &mut Cudd) -> DdNode {
+pub fn _get_trans_bdd(aig: &Aig, cudd: &mut Cudd) -> Bdd {
     let mut bdd = cudd.constant(true);
     for i in 0..aig.latchs.len() {
         let mut next_bdd = _rec_get_trans_bdd(aig, aig.latchs[i].next.node_id(), cudd);

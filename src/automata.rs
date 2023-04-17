@@ -1,4 +1,4 @@
-use cudd::{Cudd, DdNode};
+use cudd::{Cudd, Bdd};
 use logic_form::Expr;
 use nom::{
     bytes::complete::{tag, take_until},
@@ -11,8 +11,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct BuchiAutomata {
-    pub forward: Vec<Vec<(usize, DdNode)>>,
-    pub backward: Vec<Vec<(usize, DdNode)>>,
+    pub forward: Vec<Vec<(usize, Bdd)>>,
+    pub backward: Vec<Vec<(usize, Bdd)>>,
     pub accepting_states: Vec<usize>,
     pub init_states: Vec<usize>,
 }
@@ -38,7 +38,7 @@ impl BuchiAutomata {
         }
     }
 
-    pub fn add_edge(&mut self, from: usize, to: usize, label: DdNode) {
+    pub fn add_edge(&mut self, from: usize, to: usize, label: Bdd) {
         self.extend_to(from);
         self.extend_to(to);
         assert!(from < self.num_state());

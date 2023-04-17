@@ -5,7 +5,7 @@ mod worker;
 
 use crate::util::trans_expr_to_ltl;
 use automata::BuchiAutomata;
-use cudd::{Cudd, DdNode};
+use cudd::{Cudd, Bdd};
 use smv::bdd::{SmvTransBdd, SmvTransBddMethod};
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::{
@@ -19,7 +19,7 @@ use worker::Worker;
 struct PartitionedSmc {
     cudd: Cudd,
     trans: SmvTransBdd,
-    init: DdNode,
+    init: Bdd,
     automata: BuchiAutomata,
     workers: Vec<Worker>,
     parallel: bool,
@@ -31,7 +31,7 @@ impl PartitionedSmc {
     fn new(
         cudd: Cudd,
         trans: SmvTransBdd,
-        init: DdNode,
+        init: Bdd,
         automata: BuchiAutomata,
         parallel: bool,
     ) -> Self {
@@ -53,10 +53,10 @@ impl PartitionedSmc {
 
     fn reachable_state_image_first(
         &mut self,
-        from: &[DdNode],
+        from: &[Bdd],
         forward: bool,
-        constraint: Option<&[DdNode]>,
-    ) -> Vec<DdNode> {
+        constraint: Option<&[Bdd]>,
+    ) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let mut automata_trans = if forward {
             self.automata.forward.clone()
@@ -70,7 +70,7 @@ impl PartitionedSmc {
             y += 1;
             dbg!(y);
             let mut new_frontier = vec![self.cudd.constant(false); self.automata.num_state()];
-            let image: Vec<DdNode> = frontier
+            let image: Vec<Bdd> = frontier
                 .iter()
                 .map(|x| {
                     if forward {
@@ -99,7 +99,7 @@ impl PartitionedSmc {
         reach
     }
 
-    fn reachable_state_propagate_first(&mut self, from: &[DdNode], forward: bool) -> Vec<DdNode> {
+    fn reachable_state_propagate_first(&mut self, from: &[Bdd], forward: bool) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let automata_trans = if forward {
             self.automata.forward.clone()
@@ -120,7 +120,7 @@ impl PartitionedSmc {
                     tmp[*next] |= update;
                 }
             }
-            let image: Vec<DdNode> = tmp
+            let image: Vec<Bdd> = tmp
                 .iter()
                 .map(|x| {
                     if forward {
@@ -145,10 +145,10 @@ impl PartitionedSmc {
 
     fn parallel_reachable_state(
         &mut self,
-        from: &[DdNode],
+        from: &[Bdd],
         forward: bool,
-        constraint: Option<&[DdNode]>,
-    ) -> Vec<DdNode> {
+        constraint: Option<&[Bdd]>,
+    ) -> Vec<Bdd> {
         assert!(from.len() == self.workers.len());
         let workers = take(&mut self.workers);
         let mut joins = Vec::new();
@@ -169,7 +169,7 @@ impl PartitionedSmc {
         reach
     }
 
-    fn fair_states(&mut self, init_reach: &[DdNode]) -> Vec<DdNode> {
+    fn fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
         let mut fair_states = vec![self.cudd.constant(false); self.automata.num_state()];
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = init_reach[*state].clone();
