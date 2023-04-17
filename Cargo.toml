@@ -11,9 +11,7 @@ cudd = { path = "../cudd-rs" }
 nom = "7.1.3"
 smv = { path = "../smv-rs" }
 logic-form = { path = "../logic-form" }
-sylvan = { path = "../sylvan-rs" }
 
 [features]
-default = ["sylvan"]
-sylvan = []
+default = ["cudd"]
 cudd = []

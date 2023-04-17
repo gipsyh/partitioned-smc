@@ -3,6 +3,7 @@ mod bdd;
 mod util;
 mod worker;
 
+use crate::util::trans_expr_to_ltl;
 use automata::BuchiAutomata;
 use cudd::{Cudd, DdNode};
 use smv::bdd::{SmvTransBdd, SmvTransBddMethod};
@@ -13,10 +14,7 @@ use std::{
     thread::spawn,
     time::{Duration, Instant},
 };
-use sylvan::Sylvan;
 use worker::Worker;
-
-use crate::util::trans_expr_to_ltl;
 
 struct PartitionedSmc {
     cudd: Cudd,
@@ -221,7 +219,6 @@ impl PartitionedSmc {
 }
 
 fn main() {
-    Sylvan::init(0, 512);
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/short/short-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
@@ -259,31 +256,31 @@ fn main() {
     }
     let mut cudd = smv_bdd.cudd.clone();
 
-    for _ in 0..5 {
-        for ltl in &smv.ltlspecs[..] {
-            let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
-            println!("'{}'", ltl);
-            let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
-                .arg("-f")
-                .arg(format!("{}", ltl))
-                .output()
-                .unwrap();
-            let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
-            let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
-            dbg!(smv_bdd.symbols.len());
-            dbg!(ba.num_state());
-            let mut partitioned_smc = PartitionedSmc::new(
-                cudd.clone(),
-                smv_bdd.trans.clone(),
-                smv_bdd.init.clone(),
-                ba,
-                true,
-            );
-            let start = Instant::now();
-            dbg!(partitioned_smc.check());
-            println!("{:?}", start.elapsed());
-            dbg!(partitioned_smc.and_time);
-            dbg!(partitioned_smc.image_time);
-        }
+    // for _ in 0..5 {
+    for ltl in &smv.ltlspecs[..] {
+        let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
+        println!("'{}'", ltl);
+        let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
+            .arg("-f")
+            .arg(format!("{}", ltl))
+            .output()
+            .unwrap();
+        let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
+        let ba = BuchiAutomata::parse(ba.as_ref(), &mut cudd, &smv_bdd.symbols);
+        dbg!(smv_bdd.symbols.len());
+        dbg!(ba.num_state());
+        let mut partitioned_smc = PartitionedSmc::new(
+            cudd.clone(),
+            smv_bdd.trans.clone(),
+            smv_bdd.init.clone(),
+            ba,
+            true,
+        );
+        let start = Instant::now();
+        dbg!(partitioned_smc.check());
+        println!("{:?}", start.elapsed());
+        dbg!(partitioned_smc.and_time);
+        dbg!(partitioned_smc.image_time);
     }
+    // }
 }
