@@ -1,4 +1,3 @@
-use cudd::{Cudd, Bdd};
 use logic_form::Expr;
 use nom::{
     bytes::complete::{tag, take_until},
@@ -8,6 +7,8 @@ use nom::{
     IResult,
 };
 use std::collections::HashMap;
+
+use crate::{BddManager, Bdd};
 
 #[derive(Debug)]
 pub struct BuchiAutomata {
@@ -100,7 +101,7 @@ impl BuchiAutomata {
             .unwrap()
     }
 
-    pub fn parse(input: &str, cudd: &mut Cudd, symbols: &HashMap<String, usize>) -> Self {
+    pub fn parse(input: &str, manager: &mut BddManager, symbols: &HashMap<String, usize>) -> Self {
         let mut ret = Self::new();
         let mut state_map = HashMap::new();
         let (input, _) = skip_line(input).unwrap();
@@ -115,7 +116,7 @@ impl BuchiAutomata {
             if ident.ends_with("_init") {
                 ret.add_init_state(state_id);
             }
-            let mut cond = cudd.constant(true);
+            let mut cond = manager.constant(true);
             for i in 0..trans.len() {
                 let edge = trans[i].0;
                 let dist = trans[i].1;
@@ -124,7 +125,7 @@ impl BuchiAutomata {
                     continue;
                 }
                 let edge = Expr::from(edge);
-                let edge_bdd = edge.to_bdd(cudd, symbols);
+                let edge_bdd = edge.to_bdd(manager, symbols);
                 cond &= !&edge_bdd;
                 ret.add_edge(state_id, dist, edge_bdd);
             }

@@ -20,6 +20,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bdds"
+version = "0.1.0"
+dependencies = [
+ "cudd",
+ "peabody",
+]
+
+[[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -42,6 +56,15 @@ checksum = "da04b991245abeb377212488dd81428ec1f8e99522c16e859ff42b2999f209ea"
 dependencies = [
  "autotools",
  "libc",
+]
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -70,7 +93,7 @@ dependencies = [
 name = "logic-form"
 version = "0.1.1"
 dependencies = [
- "cudd",
+ "bdds",
  "nom",
 ]
 
@@ -110,13 +133,21 @@ dependencies = [
  "cudd",
  "logic-form 0.1.1",
  "nom",
+ "peabody",
  "smv",
+]
+
+[[package]]
+name = "peabody"
+version = "0.1.0"
+dependencies = [
+ "fxhash",
 ]
 
 [[package]]
 name = "smv"
 version = "0.1.0"
 dependencies = [
- "cudd",
+ "bdds",
  "nom",
 ]

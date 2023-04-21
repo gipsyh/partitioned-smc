@@ -7,11 +7,8 @@ edition = "2021"
 
 [dependencies]
 aig = { path = "../aig-rs" }
-cudd = { path = "../cudd-rs" }
 nom = "7.1.3"
 smv = { path = "../smv-rs" }
 logic-form = { path = "../logic-form" }
-
-[features]
-default = ["cudd"]
-cudd = []
+cudd = { path = "../cudd-rs" }
+peabody = { path = "../peabody" }
