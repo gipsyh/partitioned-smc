@@ -1,3 +1,5 @@
+#![feature(stmt_expr_attributes)]
+
 mod automata;
 mod bdd;
 mod util;
@@ -7,18 +9,17 @@ use crate::util::trans_expr_to_ltl;
 use automata::BuchiAutomata;
 use smv::bdd::{SmvTransBdd, SmvTransBddMethod};
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
-use std::{
-    mem::take,
-    process::Command,
-    thread::spawn,
-    time::{Duration, Instant},
-};
+use std::{mem::take, process::Command, thread::spawn, time::Instant};
 use worker::Worker;
 
+#[cfg(feature = "peabody")]
 type BddManager = peabody::Peabody;
+#[cfg(feature = "peabody")]
 type Bdd = peabody::Bdd;
-// type BddManager = cudd::Cudd;
-// type Bdd = cudd::Bdd;
+#[cfg(feature = "cudd")]
+type BddManager = cudd::Cudd;
+#[cfg(feature = "cudd")]
+type Bdd = cudd::Bdd;
 
 struct PartitionedSmc {
     manager: BddManager,
@@ -27,8 +28,6 @@ struct PartitionedSmc {
     automata: BuchiAutomata,
     workers: Vec<Worker>,
     parallel: bool,
-    and_time: Duration,
-    image_time: Duration,
 }
 
 impl PartitionedSmc {
@@ -50,8 +49,6 @@ impl PartitionedSmc {
             automata,
             workers,
             parallel,
-            and_time: Duration::default(),
-            image_time: Duration::default(),
         }
     }
 
@@ -153,25 +150,27 @@ impl PartitionedSmc {
         forward: bool,
         constraint: Option<&[Bdd]>,
     ) -> Vec<Bdd> {
-        // assert!(from.len() == self.workers.len());
-        // let workers = take(&mut self.workers);
-        // let mut joins = Vec::new();
-        // for (i, mut worker) in workers.into_iter().enumerate() {
-        //     let from = from[i].clone();
-        //     let constraint = constraint.map(|constraint| constraint[i].clone());
-        //     joins.push(spawn(move || {
-        //         let reach = worker.start(forward, from, constraint);
-        //         (reach, worker)
-        //     }));
-        // }
-        // let mut reach = Vec::new();
-        // for join in joins {
-        //     let (image, worker) = join.join().unwrap();
-        //     self.workers.push(worker);
-        //     reach.push(self.manager.translocate(&image));
-        // }
-        // reach
-        todo!()
+        assert!(from.len() == self.workers.len());
+        let workers = take(&mut self.workers);
+        let mut joins = Vec::new();
+        for (i, mut worker) in workers.into_iter().enumerate() {
+            let from = from[i].clone();
+            let constraint = constraint.map(|constraint| constraint[i].clone());
+            joins.push(spawn(move || {
+                let reach = worker.start(forward, from, constraint);
+                (reach, worker)
+            }));
+        }
+        let mut reach = Vec::new();
+        for join in joins {
+            let (image, worker) = join.join().unwrap();
+            self.workers.push(worker);
+            #[cfg(feature = "cudd")]
+            reach.push(self.manager.translocate(&image));
+            #[cfg(feature = "peabody")]
+            reach.push(image);
+        }
+        reach
     }
 
     fn fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
@@ -241,11 +240,11 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/production-cell/production-cell-flat.smv")
     // .unwrap();
 
-    let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
+    let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
@@ -254,12 +253,12 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/viscoherencep2-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/viscoherencep5-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/pdtvisvending00-flat.smv").unwrap();
+
     let manager = BddManager::new();
     let smv_bdd = SmvBdd::new(&manager, &smv, SmvTransBddMethod::Monolithic);
-    // dbg!(&smv_bdd.cudd);
     let mut trans_ltl = Expr::LitExpr(true);
     dbg!(&smv.trans.len());
-    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[13]);
+    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[0]);
     println!("{}", trans_ltl);
     let mut fairness = Expr::LitExpr(true);
     for fair in smv.fairness.iter() {
@@ -294,8 +293,6 @@ fn main() {
         let start = Instant::now();
         dbg!(partitioned_smc.check());
         println!("{:?}", start.elapsed());
-        dbg!(partitioned_smc.and_time);
-        dbg!(partitioned_smc.image_time);
         // }
     }
 }

@@ -12,3 +12,8 @@ smv = { path = "../smv-rs" }
 logic-form = { path = "../logic-form" }
 cudd = { path = "../cudd-rs" }
 peabody = { path = "../peabody" }
+
+[features]
+default = ["cudd"]
+cudd = []
+peabody = []
