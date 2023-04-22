@@ -1,6 +1,7 @@
 use crate::{automata::BuchiAutomata, Bdd, BddManager};
 use smv::bdd::SmvTransBdd;
 use std::{
+    mem::forget,
     ops::{AddAssign, SubAssign},
     sync::{
         mpsc::{channel, Receiver, Sender},
@@ -47,11 +48,7 @@ impl Worker {
 
     pub fn start(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
         let mut reach = self.manager.constant(false);
-        #[cfg(feature = "peabody")]
-        let mut init = init;
-        #[cfg(feature = "cudd")]
         let mut init = self.manager.translocate(&init);
-        #[cfg(feature = "cudd")]
         let constraint = constraint.map(|bdd| self.manager.translocate(&bdd));
         let (senders, receiver, quit) = if forward {
             (
@@ -89,16 +86,13 @@ impl Worker {
             drop(active);
             match receiver.recv().unwrap() {
                 Some(bdd) => {
-                    #[cfg(feature = "peabody")]
-                    let mut update = bdd;
-                    #[cfg(feature = "cudd")]
                     let mut update = self.manager.translocate(&bdd);
+                    forget(bdd);
                     while let Ok(bdd) = receiver.try_recv() {
                         self.active.lock().unwrap().sub_assign(1);
-                        #[cfg(feature = "cudd")]
-                        update |= self.manager.translocate(&bdd.unwrap());
-                        // #[cfg(feature = "peabody")]
-                        // // update |= bdd.unwrap();
+                        let bdd = bdd.unwrap();
+                        update |= self.manager.translocate(&bdd);
+                        forget(bdd);
                     }
                     if !forward {
                         update &= !&reach;
@@ -181,15 +175,10 @@ impl Worker {
                 backward_senders.push((backward_dest_senders[*dest].clone(), label.clone()));
             }
 
-            #[cfg(feature = "cudd")]
             let trans = trans.clone_with_new_manager();
-            #[cfg(feature = "peabody")]
-            let trans = trans.clone();
-            #[cfg(feature = "cudd")]
             for (_, sender) in forward_senders.iter_mut() {
                 *sender = trans.manager.translocate(sender);
             }
-            #[cfg(feature = "cudd")]
             for (_, sender) in backward_senders.iter_mut() {
                 *sender = trans.manager.translocate(sender);
             }

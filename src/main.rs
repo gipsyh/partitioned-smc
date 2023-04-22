@@ -52,18 +52,8 @@ impl PartitionedSmc {
         }
     }
 
-    fn reachable_state_image_first(
-        &mut self,
-        from: &[Bdd],
-        forward: bool,
-        constraint: Option<&[Bdd]>,
-    ) -> Vec<Bdd> {
+    fn pre_image(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
-        let mut automata_trans = if forward {
-            self.automata.forward.clone()
-        } else {
-            self.automata.backward.clone()
-        };
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
         let mut y = 0;
@@ -71,23 +61,14 @@ impl PartitionedSmc {
             y += 1;
             dbg!(y);
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
-            let image: Vec<Bdd> = frontier
-                .iter()
-                .map(|x| {
-                    if forward {
-                        self.trans.post_image(x)
-                    } else {
-                        self.trans.pre_image(x)
-                    }
-                })
-                .collect();
+            let image: Vec<Bdd> = frontier.iter().map(|x| self.trans.pre_image(x)).collect();
             for i in 0..frontier.len() {
-                for (next, label) in automata_trans[i].iter_mut() {
-                    *label = label.as_ref() & !&reach[*next];
+                for (next, label) in self.automata.backward[i].iter() {
+                    let mut update = &image[i] & &label;
+                    update &= !&reach[*next];
                     if let Some(constraint) = constraint {
-                        *label = label.as_ref() & &constraint[*next];
+                        update &= &constraint[*next];
                     }
-                    let update = &image[i] & &label;
                     new_frontier[*next] = &new_frontier[*next] | &update;
                     reach[*next] = &reach[*next] | update;
                 }
@@ -100,13 +81,9 @@ impl PartitionedSmc {
         reach
     }
 
-    fn reachable_state_propagate_first(&mut self, from: &[Bdd], forward: bool) -> Vec<Bdd> {
+    fn post_image(&mut self, from: &[Bdd]) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
-        let automata_trans = if forward {
-            self.automata.forward.clone()
-        } else {
-            self.automata.backward.clone()
-        };
+        let automata_trans = self.automata.forward.clone();
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
         let mut y = 0;
@@ -121,16 +98,7 @@ impl PartitionedSmc {
                     tmp[*next] |= update;
                 }
             }
-            let image: Vec<Bdd> = tmp
-                .iter()
-                .map(|x| {
-                    if forward {
-                        self.trans.post_image(x)
-                    } else {
-                        self.trans.pre_image(x)
-                    }
-                })
-                .collect();
+            let image: Vec<Bdd> = tmp.iter().map(|x| self.trans.post_image(x)).collect();
             for i in 0..image.len() {
                 let update = &image[i] & !&reach[i];
                 reach[i] |= &update;
@@ -165,10 +133,7 @@ impl PartitionedSmc {
         for join in joins {
             let (image, worker) = join.join().unwrap();
             self.workers.push(worker);
-            #[cfg(feature = "cudd")]
             reach.push(self.manager.translocate(&image));
-            #[cfg(feature = "peabody")]
-            reach.push(image);
         }
         reach
     }
@@ -177,7 +142,7 @@ impl PartitionedSmc {
         let mut fair_states = vec![self.manager.constant(false); self.automata.num_state()];
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = init_reach[*state].clone();
-            // fair_states[*state] = self.cudd.constant(true);
+            // fair_states[*state] = self.manager.constant(true);
         }
         let mut x = 0;
         loop {
@@ -186,8 +151,8 @@ impl PartitionedSmc {
             let backward = if self.parallel {
                 self.parallel_reachable_state(&fair_states, false, Some(init_reach))
             } else {
-                // self.reachable_state_image_first(&fair_states, false, None)
-                self.reachable_state_image_first(&fair_states, false, Some(init_reach))
+                // self.pre_image(&fair_states, None)
+                self.pre_image(&fair_states, Some(init_reach))
             };
             let mut new_fair_sets = Vec::new();
             for i in 0..fair_states.len() {
@@ -209,7 +174,7 @@ impl PartitionedSmc {
         let forward = if self.parallel {
             self.parallel_reachable_state(&reach, true, None)
         } else {
-            self.reachable_state_propagate_first(&reach, true)
+            self.post_image(&reach)
         };
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
@@ -229,10 +194,11 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/short/short-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/examples/counter/2bit/counter-flat.smv").unwrap();
+
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp8-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp4-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
+    let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
     // let smv =
     // Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
     // let smv =
@@ -244,7 +210,10 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
-    let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
+    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
@@ -255,10 +224,13 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/pdtvisvending00-flat.smv").unwrap();
 
     let manager = BddManager::new();
-    let smv_bdd = SmvBdd::new(&manager, &smv, SmvTransBddMethod::Monolithic);
-    let mut trans_ltl = Expr::LitExpr(true);
+    let smv_bdd = SmvBdd::new(&manager, &smv, SmvTransBddMethod::Monolithic, &[]);
     dbg!(&smv.trans.len());
+
+    let mut trans_ltl = Expr::LitExpr(true);
     // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[0]);
+    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[1]);
+    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[2]);
     println!("{}", trans_ltl);
     let mut fairness = Expr::LitExpr(true);
     for fair in smv.fairness.iter() {
@@ -268,31 +240,20 @@ fn main() {
         );
         fairness = fairness & fair;
     }
-    let mut manager = smv_bdd.manager.clone();
 
-    // for _ in 0..5 {
-    for ltl in &smv.ltlspecs[..] {
-        let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
-        println!("'{}'", ltl);
-        let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
-            .arg("-f")
-            .arg(format!("{}", ltl))
-            .output()
-            .unwrap();
-        let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
-        let ba = BuchiAutomata::parse(ba.as_ref(), &mut manager, &smv_bdd.symbols);
-        dbg!(smv_bdd.symbols.len());
-        dbg!(ba.num_state());
-        let mut partitioned_smc = PartitionedSmc::new(
-            manager.clone(),
-            smv_bdd.trans.clone(),
-            smv_bdd.init.clone(),
-            ba,
-            false,
-        );
-        let start = Instant::now();
-        dbg!(partitioned_smc.check());
-        println!("{:?}", start.elapsed());
-        // }
-    }
+    let manager = smv_bdd.manager.clone();
+
+    let ltl = &smv.ltlspecs[0];
+    let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
+    let ba = BuchiAutomata::from_ltl(ltl, &manager, &smv_bdd.symbols, &smv_bdd.defines);
+    let mut partitioned_smc = PartitionedSmc::new(
+        manager.clone(),
+        smv_bdd.trans.clone(),
+        smv_bdd.init.clone(),
+        ba,
+        true,
+    );
+    let start = Instant::now();
+    dbg!(partitioned_smc.check());
+    println!("{:?}", start.elapsed());
 }

@@ -6,9 +6,9 @@ use nom::{
     sequence::{delimited, terminated},
     IResult,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, process::Command};
 
-use crate::{BddManager, Bdd};
+use crate::{Bdd, BddManager};
 
 #[derive(Debug)]
 pub struct BuchiAutomata {
@@ -101,7 +101,7 @@ impl BuchiAutomata {
             .unwrap()
     }
 
-    pub fn parse(input: &str, manager: &mut BddManager, symbols: &HashMap<String, usize>) -> Self {
+    pub fn parse(input: &str, manager: &BddManager, symbols: &HashMap<String, Bdd>) -> Self {
         let mut ret = Self::new();
         let mut state_map = HashMap::new();
         let (input, _) = skip_line(input).unwrap();
@@ -139,5 +139,27 @@ impl BuchiAutomata {
             }
         }
         ret
+    }
+
+    pub fn from_ltl(
+        ltl: smv::Expr,
+        manager: &BddManager,
+        symbols: &HashMap<String, usize>,
+        defines: &HashMap<String, Bdd>,
+    ) -> Self {
+        println!("'{}'", ltl);
+        let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
+            .arg("-f")
+            .arg(format!("{}", ltl))
+            .output()
+            .unwrap();
+        let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
+        let mut defines = defines.clone();
+        for (ident, id) in symbols {
+            defines.insert(ident.clone(), manager.ith_var(*id));
+        }
+        let ba = BuchiAutomata::parse(ba.as_ref(), &manager, &defines);
+        dbg!(ba.num_state());
+        ba
     }
 }
