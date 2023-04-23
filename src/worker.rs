@@ -89,7 +89,9 @@ impl Worker {
                     let mut update = self.manager.translocate(&bdd);
                     forget(bdd);
                     while let Ok(bdd) = receiver.try_recv() {
-                        self.active.lock().unwrap().sub_assign(1);
+                        let mut active = self.active.lock().unwrap();
+                        active.sub_assign(1);
+                        drop(active);
                         let bdd = bdd.unwrap();
                         update |= self.manager.translocate(&bdd);
                         forget(bdd);

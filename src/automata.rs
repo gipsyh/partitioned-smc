@@ -121,21 +121,14 @@ impl BuchiAutomata {
                 let edge = trans[i].0;
                 let dist = trans[i].1;
                 let dist = ret.state_ident_get_id(&mut state_map, dist);
-                if edge == "(1)" {
-                    continue;
-                }
-                let edge = Expr::from(edge);
+                let edge = if edge == "(1)" {
+                    Expr::LitExpr(true)
+                } else {
+                    Expr::from(edge)
+                };
                 let edge_bdd = edge.to_bdd(manager, symbols);
                 cond &= !&edge_bdd;
                 ret.add_edge(state_id, dist, edge_bdd);
-            }
-            for i in 0..trans.len() {
-                let edge = trans[i].0;
-                let dist = trans[i].1;
-                let dist = ret.state_ident_get_id(&mut state_map, dist);
-                if edge == "(1)" {
-                    ret.add_edge(state_id, dist, cond.clone());
-                }
             }
         }
         ret

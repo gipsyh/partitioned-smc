@@ -9,7 +9,7 @@ use crate::util::trans_expr_to_ltl;
 use automata::BuchiAutomata;
 use smv::bdd::{SmvTransBdd, SmvTransBddMethod};
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
-use std::{mem::take, process::Command, thread::spawn, time::Instant};
+use std::{mem::take, thread::spawn, time::Instant};
 use worker::Worker;
 
 #[cfg(feature = "peabody")]
@@ -52,7 +52,7 @@ impl PartitionedSmc {
         }
     }
 
-    fn pre_image(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
+    fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
@@ -81,7 +81,7 @@ impl PartitionedSmc {
         reach
     }
 
-    fn post_image(&mut self, from: &[Bdd]) -> Vec<Bdd> {
+    fn post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let automata_trans = self.automata.forward.clone();
         let mut frontier = from.to_vec();
@@ -151,8 +151,8 @@ impl PartitionedSmc {
             let backward = if self.parallel {
                 self.parallel_reachable_state(&fair_states, false, Some(init_reach))
             } else {
-                // self.pre_image(&fair_states, None)
-                self.pre_image(&fair_states, Some(init_reach))
+                // self.pre_reachable(&fair_states, None)
+                self.pre_reachable(&fair_states, Some(init_reach))
             };
             let mut new_fair_sets = Vec::new();
             for i in 0..fair_states.len() {
@@ -174,7 +174,7 @@ impl PartitionedSmc {
         let forward = if self.parallel {
             self.parallel_reachable_state(&reach, true, None)
         } else {
-            self.post_image(&reach)
+            self.post_reachable(&reach)
         };
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
@@ -198,7 +198,7 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp8-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/abp/abp4-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
-    let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
+    // let mut smv = Smv::from_file("../MC-Benchmark/LMCS-2006/prod-cons/prod-cons-flat.smv").unwrap();
     // let smv =
     // Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
     // let smv =
@@ -210,12 +210,12 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
+    let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv").unwrap();
+    // let mut smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/viscoherencep1-flat.smv").unwrap();
@@ -223,15 +223,14 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/viscoherencep5-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc08/pdtvisvending00-flat.smv").unwrap();
 
+    // smv.flatten_defines();
     let manager = BddManager::new();
     let smv_bdd = SmvBdd::new(&manager, &smv, SmvTransBddMethod::Monolithic, &[]);
     dbg!(&smv.trans.len());
 
     let mut trans_ltl = Expr::LitExpr(true);
-    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[0]);
-    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[1]);
-    // trans_ltl = trans_ltl & trans_expr_to_ltl(&smv.trans[2]);
-    println!("{}", trans_ltl);
+    trans_ltl = trans_ltl & Expr::PrefixExpr(Prefix::LtlGlobally, Box::new(smv.trans[0].clone()));
+    trans_ltl = trans_ltl & Expr::PrefixExpr(Prefix::LtlGlobally, Box::new(smv.trans[2].clone()));
     let mut fairness = Expr::LitExpr(true);
     for fair in smv.fairness.iter() {
         let fair = Expr::PrefixExpr(
@@ -243,8 +242,13 @@ fn main() {
 
     let manager = smv_bdd.manager.clone();
 
-    let ltl = &smv.ltlspecs[0];
-    let ltl = !ltl.clone() & fairness.clone() & trans_ltl.clone();
+    let ltl = !smv.ltlspecs[0].clone() & fairness & trans_ltl;
+    println!("{}", ltl);
+    let ltl = smv.flatten_to_propositional_define(&ltl);
+    println!("{}", ltl);
+    let ltl = smv.flatten_case(ltl);
+    println!("{}", ltl);
+    let ltl = trans_expr_to_ltl(&ltl);
     let ba = BuchiAutomata::from_ltl(ltl, &manager, &smv_bdd.symbols, &smv_bdd.defines);
     let mut partitioned_smc = PartitionedSmc::new(
         manager.clone(),
