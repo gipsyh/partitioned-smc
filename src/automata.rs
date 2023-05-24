@@ -1,3 +1,5 @@
+use crate::{Bdd, BddManager};
+use fsmbdd::FsmBdd;
 use logic_form::Expr;
 use nom::{
     bytes::complete::{tag, take_until},
@@ -8,10 +10,10 @@ use nom::{
 };
 use std::{collections::HashMap, process::Command};
 
-use crate::{Bdd, BddManager};
-
 #[derive(Debug)]
 pub struct BuchiAutomata {
+    pub manager: BddManager,
+    pub symbols: HashMap<String, usize>,
     pub forward: Vec<Vec<(usize, Bdd)>>,
     pub backward: Vec<Vec<(usize, Bdd)>>,
     pub accepting_states: Vec<usize>,
@@ -19,8 +21,10 @@ pub struct BuchiAutomata {
 }
 
 impl BuchiAutomata {
-    pub fn new() -> Self {
+    fn new(manager: BddManager) -> Self {
         Self {
+            symbols: HashMap::new(),
+            manager,
             forward: Vec::new(),
             backward: Vec::new(),
             accepting_states: Vec::new(),
@@ -101,8 +105,8 @@ impl BuchiAutomata {
             .unwrap()
     }
 
-    pub fn parse(input: &str, manager: &BddManager, symbols: &HashMap<String, Bdd>) -> Self {
-        let mut ret = Self::new();
+    fn parse(input: &str, manager: &BddManager, symbols: &HashMap<String, Bdd>) -> Self {
+        let mut ret = Self::new(manager.clone());
         let mut state_map = HashMap::new();
         let (input, _) = skip_line(input).unwrap();
         let (input, states) = many1(parse_state)(input).unwrap();
@@ -151,8 +155,60 @@ impl BuchiAutomata {
         for (ident, id) in symbols {
             defines.insert(ident.clone(), manager.ith_var(*id));
         }
-        let ba = BuchiAutomata::parse(ba.as_ref(), &manager, &defines);
+        let mut ba = BuchiAutomata::parse(ba.as_ref(), &manager, &defines);
         dbg!(ba.num_state());
+        ba.symbols = symbols.clone();
         ba
+    }
+
+    fn automata_state_encode(&self, base: usize, num_encode_var: usize, mut id: usize) -> Bdd {
+        let mut res = self.manager.constant(true);
+        for i in 0..num_encode_var {
+            let var = self.manager.ith_var((base + i) * 2);
+            if id % 2 == 0 {
+                res &= !var;
+            } else {
+                res &= var;
+            }
+            id /= 2;
+        }
+        res
+    }
+
+    pub fn to_fsmbdd(&self) -> FsmBdd<BddManager> {
+        // let mut symbols = self.symbols.clone();
+        // let base = symbols.len();
+        // let num_encode_var = usize::BITS as usize - (self.num_state() - 1).leading_zeros() as usize;
+        // for encode_var in 0..num_encode_var {
+        //     self.manager.ith_var((base + encode_var) * 2);
+        //     self.manager.ith_var((base + encode_var) * 2 + 1);
+        //     symbols.insert(format!("automata{}", encode_var), (base + encode_var) * 2);
+        // }
+        // let mut init = self.manager.constant(false);
+        // for init_state in self.init_states.iter() {
+        //     init |= self.automata_state_encode(base, num_encode_var, *init_state);
+        // }
+        // let mut trans = self.manager.constant(false);
+        // for state in 0..self.num_state() {
+        //     for (next, label) in self.forward[state].iter() {
+        //         let next = self
+        //             .automata_state_encode(base, num_encode_var, *next)
+        //             .next_state();
+        //         let state = self.automata_state_encode(base, num_encode_var, state);
+        //         trans |= next & label & state;
+        //     }
+        // }
+        // let mut fair = self.manager.constant(false);
+        // for fair_state in self.accepting_states.iter() {
+        //     fair |= self.automata_state_encode(base, num_encode_var, *fair_state);
+        // }
+        // FsmBdd {
+        //     symbols,
+        //     manager: self.manager.clone(),
+        //     init,
+        //     trans,
+        //     fair,
+        // }
+        todo!()
     }
 }

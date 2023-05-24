@@ -1,5 +1,5 @@
 use crate::{automata::BuchiAutomata, Bdd, BddManager};
-use smv::bdd::SmvTransBdd;
+use fsmbdd::FsmBdd;
 use std::{
     mem::forget,
     ops::{AddAssign, SubAssign},
@@ -11,7 +11,7 @@ use std::{
 
 pub struct Worker {
     manager: BddManager,
-    pub trans: SmvTransBdd<BddManager>,
+    fsmbdd: FsmBdd<BddManager>,
     forward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
     forward_receiver: Receiver<Option<Bdd>>,
     backward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
@@ -24,7 +24,7 @@ pub struct Worker {
 impl Worker {
     pub fn new(
         manager: BddManager,
-        trans: SmvTransBdd<BddManager>,
+        fsmbdd: FsmBdd<BddManager>,
         forward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
         forward_receiver: Receiver<Option<Bdd>>,
         backward_sender: Vec<(Sender<Option<Bdd>>, Bdd)>,
@@ -35,7 +35,7 @@ impl Worker {
     ) -> Self {
         Self {
             manager,
-            trans,
+            fsmbdd,
             forward_sender,
             forward_receiver,
             backward_sender,
@@ -64,7 +64,7 @@ impl Worker {
             )
         };
         if !forward && init != self.manager.constant(false) {
-            init = self.trans.pre_image(&init);
+            init = self.fsmbdd.pre_image(&init);
         }
         if init != self.manager.constant(false) {
             for (sender, label) in senders {
@@ -88,13 +88,17 @@ impl Worker {
                 Some(bdd) => {
                     let mut update = self.manager.translocate(&bdd);
                     forget(bdd);
+                    let mut num_recieve = 0;
                     while let Ok(bdd) = receiver.try_recv() {
-                        let mut active = self.active.lock().unwrap();
-                        active.sub_assign(1);
-                        drop(active);
+                        num_recieve += 1;
                         let bdd = bdd.unwrap();
                         update |= self.manager.translocate(&bdd);
                         forget(bdd);
+                    }
+                    if num_recieve > 0 {
+                        let mut active = self.active.lock().unwrap();
+                        active.sub_assign(num_recieve);
+                        drop(active);
                     }
                     if !forward {
                         update &= !&reach;
@@ -105,9 +109,9 @@ impl Worker {
                     }
                     if update != self.manager.constant(false) {
                         let mut update = if forward {
-                            self.trans.post_image(&update)
+                            self.fsmbdd.post_image(&update)
                         } else {
-                            self.trans.pre_image(&update)
+                            self.fsmbdd.pre_image(&update)
                         };
                         if forward {
                             update &= !&reach;
@@ -135,7 +139,7 @@ impl Worker {
 }
 
 impl Worker {
-    pub fn create_workers(trans: &SmvTransBdd<BddManager>, automata: &BuchiAutomata) -> Vec<Self> {
+    pub fn create_workers(fsmbdd: &FsmBdd<BddManager>, automata: &BuchiAutomata) -> Vec<Self> {
         let mut forward_recievers = vec![];
         let mut backward_recievers = vec![];
         let mut forward_dest_senders = vec![];
@@ -177,7 +181,7 @@ impl Worker {
                 backward_senders.push((backward_dest_senders[*dest].clone(), label.clone()));
             }
 
-            let trans = trans.clone_with_new_manager();
+            let trans = fsmbdd.clone_with_new_manager();
             for (_, sender) in forward_senders.iter_mut() {
                 *sender = trans.manager.translocate(sender);
             }
