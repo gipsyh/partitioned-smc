@@ -20,10 +20,14 @@ impl Into<TransBddMethod> for TransMethod {
 /// Partitioned Symbolic Model Checking
 pub struct Args {
     /// trans partition method
-    #[arg(short, long, value_enum, default_value_t = TransMethod::Partition)]
+    #[arg(short = 'm', long, value_enum, default_value_t = TransMethod::Partition)]
     pub trans_method: TransMethod,
 
     /// parallel
     #[arg(short, long, default_value_t = false)]
     pub parallel: bool,
+
+    /// extend trans
+    #[arg(short = 'e', long)]
+    pub ltl_extend_trans: Vec<usize>,
 }

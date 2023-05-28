@@ -5,16 +5,16 @@ mod bdd;
 mod cav00;
 mod command;
 mod liveness;
+mod ltl;
 mod reachable;
 mod safety;
 mod util;
 mod worker;
 
-use crate::util::trans_expr_to_ltl;
 use automata::BuchiAutomata;
 use clap::Parser;
 use fsmbdd::FsmBdd;
-use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
+use smv::{bdd::SmvBdd, Smv};
 use std::time::Instant;
 use worker::Worker;
 
@@ -48,33 +48,6 @@ impl PartitionedSmc {
             parallel,
         }
     }
-}
-
-fn get_ltl(smv: &Smv) -> Expr {
-    dbg!(&smv.trans.len());
-    // let smv = smv.flatten_defines();
-    let mut trans_ltl = Expr::LitExpr(true);
-    trans_ltl = trans_ltl & Expr::PrefixExpr(Prefix::LtlGlobally, Box::new(smv.trans[1].clone()));
-    // trans_ltl = trans_ltl & Expr::PrefixExpr(Prefix::LtlGlobally, Box::new(smv.trans[1].clone()));
-    let mut fairness = Expr::LitExpr(true);
-    for fair in smv.fairness.iter() {
-        let fair = Expr::PrefixExpr(
-            Prefix::LtlGlobally,
-            Box::new(Expr::PrefixExpr(Prefix::LtlFinally, Box::new(fair.clone()))),
-        );
-        fairness = fairness & fair;
-    }
-    let ltl = smv.ltlspecs[0].clone();
-    let ltl = !Expr::InfixExpr(
-        smv::Infix::Imply,
-        Box::new(trans_ltl & fairness),
-        Box::new(ltl),
-    );
-    let ltl = smv.flatten_to_propositional_define(&ltl);
-    let ltl = smv.flatten_case(ltl);
-    let ltl = trans_expr_to_ltl(&ltl);
-    println!("{}", ltl);
-    ltl
 }
 
 fn main() {
@@ -121,7 +94,12 @@ fn main() {
     let manager = BddManager::new();
     let smv_bdd = SmvBdd::new(&manager, &smv, &[]);
     let fsmbdd = smv_bdd.to_fsmbdd(args.trans_method.into());
-    let ba = BuchiAutomata::from_ltl(get_ltl(&smv), &manager, &smv_bdd.symbols, &smv_bdd.defines);
+    let ba = BuchiAutomata::from_ltl(
+        ltl::get_ltl(&smv, &args.ltl_extend_trans),
+        &manager,
+        &smv_bdd.symbols,
+        &smv_bdd.defines,
+    );
     let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
     let start = Instant::now();
     dbg!(partitioned_smc.check_liveness());
