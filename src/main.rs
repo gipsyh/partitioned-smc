@@ -57,18 +57,18 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/examples/counter/2bit/counter-flat.smv").unwrap();
 
     let input_file =
-    // LMCS2006
-    // "../MC-Benchmark/partitioned-smc/liveness/abp4-flat-p2.smv";
-    // "../MC-Benchmark/partitioned-smc/liveness/abp8-flat-p0.smv";
-    // "../MC-Benchmark/partitioned-smc/liveness/prod-cons-flat-p1.smv";
-    // "../MC-Benchmark/partitioned-smc/liveness/production-cell-flat-p4.smv";
+
+    // "../MC-Benchmark/partitioned-smc/lmcs2006/abp4-flat-p2.smv";
+    "../MC-Benchmark/partitioned-smc/lmcs2006/abp8-flat-p0.smv";
+    // "../MC-Benchmark/partitioned-smc/lmcs2006/prod-cons-flat-p1.smv";
+    // "../MC-Benchmark/partitioned-smc/lmcs2006/production-cell-flat-p4.smv";
 
     // let smv =
     //     Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
 
     // HWMCC08
-    "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep1-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep1-flat.smv";
     // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep2-flat.smv";
     // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep5-flat.smv";
 
