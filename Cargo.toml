@@ -12,6 +12,7 @@ smv = { path = "../smv-rs" }
 logic-form = { path = "../logic-form" }
 cudd = { path = "../cudd-rs" }
 fsmbdd = { path = "../fsmbdd" }
+clap = { version = "4.3.0" , features = ["derive"] }
 
 [features]
 default = ["cudd"]

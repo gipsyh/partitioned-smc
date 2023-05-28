@@ -1,3 +1,5 @@
+use std::{mem::take, thread::spawn};
+
 use crate::{Bdd, PartitionedSmc};
 
 impl PartitionedSmc {
@@ -56,6 +58,32 @@ impl PartitionedSmc {
                 break;
             }
             frontier = new_frontier;
+        }
+        reach
+    }
+
+    pub fn parallel_reachable_state(
+        &mut self,
+        from: &[Bdd],
+        forward: bool,
+        constraint: Option<&[Bdd]>,
+    ) -> Vec<Bdd> {
+        assert!(from.len() == self.workers.len());
+        let workers = take(&mut self.workers);
+        let mut joins = Vec::new();
+        for (i, mut worker) in workers.into_iter().enumerate() {
+            let from = from[i].clone();
+            let constraint = constraint.map(|constraint| constraint[i].clone());
+            joins.push(spawn(move || {
+                let reach = worker.start(forward, from, constraint);
+                (reach, worker)
+            }));
+        }
+        let mut reach = Vec::new();
+        for join in joins {
+            let (image, worker) = join.join().unwrap();
+            self.workers.push(worker);
+            reach.push(self.manager.translocate(&image));
         }
         reach
     }
