@@ -1,8 +1,8 @@
 use crate::{automata::BuchiAutomata, Bdd, BddManager};
 use fsmbdd::FsmBdd;
 use std::{
-    mem::forget,
-    ops::AddAssign,
+    cmp::max,
+    ops::{AddAssign, SubAssign},
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
@@ -36,6 +36,7 @@ impl Worker {
         for (next, label) in ba_trans {
             let message = &data & label;
             if !message.is_constant(false) {
+                self.active.lock().unwrap().add_assign(1);
                 self.sender[*next]
                     .send(Message::Data(message, self.id))
                     .unwrap();
@@ -56,48 +57,48 @@ impl Worker {
     pub fn reset(&mut self) {
         while let Ok(message) = self.receiver.try_recv() {
             match message {
-                Message::Data(_, a) => {
-                    panic!();
-                }
+                Message::Data(_, _) => todo!(),
                 Message::GC(_) => todo!(),
                 Message::Quit => (),
             }
         }
-        *self.active.lock().unwrap() = 0;
+        let mut active = self.active.lock().unwrap();
+        *active = max(self.id as i32 + 1, *active);
     }
 
-    pub fn init(&mut self, forward: bool, init: Bdd) {
-        let mut init = self.manager.translocate(&init);
-        if !forward && init != self.manager.constant(false) {
-            init = self.fsmbdd.pre_image(&init);
-        }
-        let ba_trans = if forward {
-            self.forward.clone()
-        } else {
-            self.backward.clone()
-        };
-        let update = self.propagate(&ba_trans, init);
-        self.active.lock().unwrap().add_assign(update);
-    }
-
-    pub fn start(&mut self, forward: bool, constraint: Option<Bdd>) -> Bdd {
+    pub fn start(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
         let mut reach = self.manager.constant(false);
+        let mut init = self.manager.translocate(&init);
         let constraint = constraint.map(|bdd| self.manager.translocate(&bdd));
         let ba_trans = if forward {
             self.forward.clone()
         } else {
             self.backward.clone()
         };
+        if !forward && init != self.manager.constant(false) {
+            init = self.fsmbdd.pre_image(&init);
+        }
+        self.propagate(&ba_trans, init);
         loop {
+            let mut active = self.active.lock().unwrap();
+            active.sub_assign(1);
+            let active_value = *active;
+            drop(active);
+            if active_value == 0 {
+                self.quit();
+                return reach;
+            }
             let mut update = self.manager.constant(false);
             let mut num_update: i32 = 0;
             match self.receiver.recv().unwrap() {
                 Message::Data(data, src) => {
-                    num_update -= 1;
                     update |= self.manager.translocate(&data);
-                    forget(data);
+                    self.active.lock().unwrap().add_assign(1);
+                    self.sender[src].send(Message::GC(data)).unwrap();
                 }
-                Message::GC(_) => todo!(),
+                Message::GC(bdd) => {
+                    drop(bdd);
+                }
                 Message::Quit => {
                     return reach;
                 }
@@ -105,12 +106,16 @@ impl Worker {
             while let Ok(message) = self.receiver.try_recv() {
                 match message {
                     Message::Data(data, src) => {
-                        num_update -= 1;
                         update |= self.manager.translocate(&data);
-                        forget(data);
+                        num_update -= 1;
+                        self.active.lock().unwrap().add_assign(1);
+                        self.sender[src].send(Message::GC(data)).unwrap();
                     }
-                    Message::GC(_) => todo!(),
-                    Message::Quit => todo!(),
+                    Message::GC(bdd) => {
+                        num_update -= 1;
+                        drop(bdd);
+                    }
+                    Message::Quit => panic!(),
                 }
             }
             if !forward {
@@ -130,19 +135,15 @@ impl Worker {
                     update &= !&reach;
                     reach |= &update;
                 }
-                num_update += self.propagate(&ba_trans, update) as i32;
+                self.propagate(&ba_trans, update);
             }
             let mut active = self.active.lock().unwrap();
-            // dbg!(*active);
-            // dbg!(num_update);
+
+            assert!(*active > 0);
             active.add_assign(num_update);
-            let active_value = *active;
-            // dbg!(active_value);
+            assert!(*active >= 0);
+
             drop(active);
-            if active_value == 0 {
-                self.quit();
-                return reach;
-            }
         }
     }
 }

@@ -58,8 +58,9 @@ fn main() {
 
     let input_file =
 
+    // LMCS2006
     // "../MC-Benchmark/partitioned-smc/lmcs2006/abp4-flat-p2.smv";
-    "../MC-Benchmark/partitioned-smc/lmcs2006/abp8-flat-p0.smv";
+    // "../MC-Benchmark/partitioned-smc/lmcs2006/abp8-flat-p0.smv";
     // "../MC-Benchmark/partitioned-smc/lmcs2006/prod-cons-flat-p1.smv";
     // "../MC-Benchmark/partitioned-smc/lmcs2006/production-cell-flat-p4.smv";
 
@@ -74,6 +75,9 @@ fn main() {
 
     // "../MC-Benchmark/partitioned-smc/hwmcc08/pdtvisvending00-flat.smv";
     // "../MC-Benchmark/partitioned-smc/hwmcc08/bj08amba2g5-flat.smv";
+
+    // HWMCC17
+    "../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv";
 
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
