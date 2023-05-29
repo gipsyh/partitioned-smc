@@ -69,15 +69,14 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
 
     // HWMCC08
-    // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep1-flat.smv";
-    // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep2-flat.smv";
-    // "../MC-Benchmark/partitioned-smc/hwmcc08/viscoherencep5-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/viscoherencep1-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/viscoherencep2-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/viscoherencep5-flat.smv";
 
-    // "../MC-Benchmark/partitioned-smc/hwmcc08/pdtvisvending00-flat.smv";
-    // "../MC-Benchmark/partitioned-smc/hwmcc08/bj08amba2g5-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/bj08amba2g5-flat.smv";
 
     // HWMCC17
-    "../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv";
+    "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
 
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
@@ -107,7 +106,5 @@ fn main() {
     let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
     let start = Instant::now();
     dbg!(partitioned_smc.check_liveness());
-    // dbg!(partitioned_smc.check_ltl_cav00());
-    // dbg!(partitioned_smc.check_ltl());
     println!("{:?}", start.elapsed());
 }

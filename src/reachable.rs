@@ -1,6 +1,5 @@
-use std::{mem::take, thread::spawn};
-
 use crate::{Bdd, PartitionedSmc};
+use std::{mem::take, thread::spawn};
 
 impl PartitionedSmc {
     pub fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
