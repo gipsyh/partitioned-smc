@@ -1,54 +1,19 @@
 #![feature(stmt_expr_attributes)]
 
 mod automata;
-mod bdd;
 mod cav00;
 mod command;
-mod liveness;
 mod ltl;
-mod reachable;
-mod safety;
+mod partitioned;
 mod util;
-mod worker;
 
+use crate::partitioned::PartitionedSmc;
 use automata::BuchiAutomata;
 use clap::Parser;
-use fsmbdd::FsmBdd;
 use smv::{bdd::SmvBdd, Smv};
-use std::time::Instant;
-use worker::Worker;
 
 type BddManager = cudd::Cudd;
 type Bdd = cudd::Bdd;
-
-struct PartitionedSmc {
-    manager: BddManager,
-    fsmbdd: FsmBdd<BddManager>,
-    automata: BuchiAutomata,
-    workers: Vec<Worker>,
-    parallel: bool,
-}
-
-impl PartitionedSmc {
-    fn new(
-        manager: BddManager,
-        fsmbdd: FsmBdd<BddManager>,
-        automata: BuchiAutomata,
-        parallel: bool,
-    ) -> Self {
-        let mut workers = Vec::new();
-        if parallel {
-            workers = Worker::create_workers(&fsmbdd, &automata);
-        }
-        Self {
-            manager,
-            fsmbdd,
-            automata,
-            workers,
-            parallel,
-        }
-    }
-}
 
 fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv").unwrap();
@@ -59,10 +24,10 @@ fn main() {
     let input_file =
 
     // LMCS2006
-    // "../MC-Benchmark/partitioned-smc/lmcs2006/abp4-flat-p2.smv";
-    // "../MC-Benchmark/partitioned-smc/lmcs2006/abp8-flat-p0.smv";
-    // "../MC-Benchmark/partitioned-smc/lmcs2006/prod-cons-flat-p1.smv";
-    // "../MC-Benchmark/partitioned-smc/lmcs2006/production-cell-flat-p4.smv";
+    // "../MC-Benchmark/partitioned-smc/abp4-flat-p2.smv";
+    // "../MC-Benchmark/partitioned-smc/abp8-flat-p2.smv";
+    // "../MC-Benchmark/partitioned-smc/prod-cons-flat-p0.smv";
+    // "../MC-Benchmark/partitioned-smc/production-cell-flat-p1.smv";
 
     // let smv =
     //     Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
@@ -73,10 +38,12 @@ fn main() {
     // "../MC-Benchmark/partitioned-smc/viscoherencep2-flat.smv";
     // "../MC-Benchmark/partitioned-smc/viscoherencep5-flat.smv";
 
-    // "../MC-Benchmark/partitioned-smc/bj08amba2g5-flat.smv";
-
     // HWMCC17
-    "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
+    // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";
+
+    // HWMCC19
+    "../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv";
 
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
@@ -87,9 +54,8 @@ fn main() {
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv").unwrap();
     // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv").unwrap();
+    // let smv = Smv::from_file(").unwrap();
 
     let args = command::Args::parse();
     let smv = Smv::from_file(input_file).unwrap();
@@ -103,8 +69,7 @@ fn main() {
         &smv_bdd.symbols,
         &smv_bdd.defines,
     );
-    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
-    let start = Instant::now();
-    dbg!(partitioned_smc.check_liveness());
-    println!("{:?}", start.elapsed());
+
+    let time = partitioned::check(manager, fsmbdd, ba, args.parallel);
+    println!("{:?}", time);
 }

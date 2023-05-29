@@ -145,17 +145,17 @@ impl BuchiAutomata {
         defines: &HashMap<String, Bdd>,
     ) -> Self {
         println!("'{}'", ltl);
-        // let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
-        //     .arg("-f")
-        //     .arg(format!("{}", ltl))
-        //     .output()
-        //     .unwrap();
-        let ltl2dfa = Command::new("/root/spot-2.11.5/bin/ltl2tgba")
-            .arg("-s")
+        let ltl2dfa = Command::new("/root/ltl2ba-1.3/ltl2ba")
             .arg("-f")
             .arg(format!("{}", ltl))
             .output()
             .unwrap();
+        // let ltl2dfa = Command::new("/root/spot-2.11.5/bin/ltl2tgba")
+        //     .arg("-s")
+        //     .arg("-f")
+        //     .arg(format!("{}", ltl))
+        //     .output()
+        //     .unwrap();
         let ba = String::from_utf8_lossy(&ltl2dfa.stdout);
         let mut defines = defines.clone();
         for (ident, id) in symbols {

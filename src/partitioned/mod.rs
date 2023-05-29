@@ -1,6 +1,39 @@
-use crate::{Bdd, PartitionedSmc};
+mod reachable;
+mod worker;
+
+use crate::{automata::BuchiAutomata, Bdd, BddManager};
+use fsmbdd::FsmBdd;
+use std::time::{Duration, Instant};
+use worker::Worker;
+
+pub struct PartitionedSmc {
+    manager: BddManager,
+    fsmbdd: FsmBdd<BddManager>,
+    automata: BuchiAutomata,
+    workers: Vec<Worker>,
+    parallel: bool,
+}
 
 impl PartitionedSmc {
+    pub fn new(
+        manager: BddManager,
+        fsmbdd: FsmBdd<BddManager>,
+        automata: BuchiAutomata,
+        parallel: bool,
+    ) -> Self {
+        let mut workers = Vec::new();
+        if parallel {
+            workers = Worker::create_workers(&fsmbdd, &automata);
+        }
+        Self {
+            manager,
+            fsmbdd,
+            automata,
+            workers,
+            parallel,
+        }
+    }
+
     fn fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
         let mut fair_states = vec![self.manager.constant(false); self.automata.num_state()];
         for state in self.automata.accepting_states.iter() {
@@ -29,7 +62,7 @@ impl PartitionedSmc {
         fair_states
     }
 
-    pub fn check_liveness(&mut self) -> bool {
+    pub fn check(&mut self) -> bool {
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
         for init_state in self.automata.init_states.iter() {
             reach[*init_state] |= &self.fsmbdd.init;
@@ -50,4 +83,16 @@ impl PartitionedSmc {
         }
         true
     }
+}
+
+pub fn check(
+    manager: BddManager,
+    fsmbdd: FsmBdd<BddManager>,
+    ba: BuchiAutomata,
+    parallel: bool,
+) -> Duration {
+    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, parallel);
+    let start = Instant::now();
+    dbg!(partitioned_smc.check());
+    start.elapsed()
 }

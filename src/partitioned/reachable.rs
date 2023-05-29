@@ -1,4 +1,5 @@
-use crate::{Bdd, PartitionedSmc};
+use super::PartitionedSmc;
+use crate::Bdd;
 use std::{mem::take, thread::spawn};
 
 impl PartitionedSmc {
