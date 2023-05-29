@@ -14,12 +14,15 @@ use smv::{bdd::SmvBdd, Smv};
 
 type BddManager = cudd::Cudd;
 type Bdd = cudd::Bdd;
+// type BddManager = sylvan::Sylvan;
+// type Bdd = sylvan::Bdd;
 
 fn main() {
-    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/short/short-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/ring/ring-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/examples/counter/2bit/counter-flat.smv").unwrap();
+    // TEST
+    // "../MC-Benchmark/LMCS-2006/mutex/mutex-flat.smv";
+    // "../MC-Benchmark/LMCS-2006/short/short-flat.smv";
+    // "../MC-Benchmark/LMCS-2006/ring/ring-flat.smv";
+    // "../MC-Benchmark/examples/counter/2bit/counter-flat.smv";
 
     let input_file =
 
@@ -29,9 +32,8 @@ fn main() {
     // "../MC-Benchmark/partitioned-smc/prod-cons-flat-p0.smv";
     // "../MC-Benchmark/partitioned-smc/production-cell-flat-p1.smv";
 
-    // let smv =
-    //     Smv::from_file("../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv").unwrap();
+    // "../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv";
+    // "../MC-Benchmark/LMCS-2006/dme/dme3-flat.smv";
 
     // HWMCC08
     // "../MC-Benchmark/partitioned-smc/viscoherencep1-flat.smv";
@@ -39,23 +41,22 @@ fn main() {
     // "../MC-Benchmark/partitioned-smc/viscoherencep5-flat.smv";
 
     // HWMCC17
-    // "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
+    "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
     // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";
 
     // HWMCC19
-    "../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv";
+    // "../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv";
 
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
-    // let smv = Smv::from_file("../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
-    // let smv = Smv::from_file(").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/single/shift1add262144-flat.smv").unwrap();
+    // "../MC-Benchmark/hwmcc17/single/ringp0-flat.smv").unwrap();
 
     let args = command::Args::parse();
     let smv = Smv::from_file(input_file).unwrap();
