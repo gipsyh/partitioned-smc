@@ -1,6 +1,6 @@
 use smv::{Expr, Prefix};
 
-pub fn trans_expr_to_ltl_rec(expr: &Expr) -> Expr {
+fn trans_expr_to_ltl_rec(expr: &Expr) -> Expr {
     match expr {
         Expr::PrefixExpr(prefix, expr) => match prefix {
             Prefix::Next => {

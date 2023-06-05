@@ -1,8 +1,11 @@
 mod reachable;
 mod worker;
 
-use crate::{automata::BuchiAutomata, Bdd, BddManager};
+use crate::{
+    automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, Bdd, BddManager,
+};
 use fsmbdd::FsmBdd;
+use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::time::{Duration, Instant};
 use worker::Worker;
 
@@ -85,14 +88,45 @@ impl PartitionedSmc {
     }
 }
 
-pub fn check(
-    manager: BddManager,
-    fsmbdd: FsmBdd<BddManager>,
-    ba: BuchiAutomata,
-    parallel: bool,
-) -> Duration {
-    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, parallel);
+fn get_ltl(smv: &Smv, extend_trans: &[usize]) -> Expr {
+    dbg!(&smv.trans.len());
+    dbg!(extend_trans);
+    // let smv = smv.flatten_defines();
+    let trans_ltl = extend_trans
+        .iter()
+        .fold(Expr::LitExpr(true), |fold, extend| {
+            fold & Expr::PrefixExpr(Prefix::LtlGlobally, Box::new(smv.trans[*extend].clone()))
+        });
+    let mut fairness = Expr::LitExpr(true);
+    for fair in smv.fairness.iter() {
+        let fair = Expr::PrefixExpr(
+            Prefix::LtlGlobally,
+            Box::new(Expr::PrefixExpr(Prefix::LtlFinally, Box::new(fair.clone()))),
+        );
+        fairness = fairness & fair;
+    }
+    let ltl = smv.ltlspecs[0].clone();
+    let ltl = !Expr::InfixExpr(
+        smv::Infix::Imply,
+        Box::new(trans_ltl & fairness),
+        Box::new(ltl),
+    );
+    let ltl = ltl_to_automata_preprocess(&smv, ltl);
+    println!("{}", ltl);
+    ltl
+}
+
+pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
+    let smv_bdd = SmvBdd::new(&manager, &smv);
+    let mut fsmbdd = smv_bdd.to_fsmbdd(args.trans_method.into());
+    fsmbdd.justice.clear();
+    let ba = BuchiAutomata::from_ltl(
+        get_ltl(&smv, &args.ltl_extend_trans),
+        &manager,
+        &smv_bdd.symbols,
+        &smv_bdd.defines,
+    );
+    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
     let start = Instant::now();
-    dbg!(partitioned_smc.check());
-    start.elapsed()
+    (partitioned_smc.check(), start.elapsed())
 }

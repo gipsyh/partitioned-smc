@@ -1,5 +1,5 @@
 use crate::{Bdd, BddManager};
-use fsmbdd::FsmBdd;
+use fsmbdd::{FsmBdd, Trans, TransBddMethod};
 use logic_form::Expr;
 use nom::{
     bytes::complete::{tag, take_until},
@@ -182,39 +182,40 @@ impl BuchiAutomata {
     }
 
     pub fn to_fsmbdd(&self) -> FsmBdd<BddManager> {
-        // let mut symbols = self.symbols.clone();
-        // let base = symbols.len();
-        // let num_encode_var = usize::BITS as usize - (self.num_state() - 1).leading_zeros() as usize;
-        // for encode_var in 0..num_encode_var {
-        //     self.manager.ith_var((base + encode_var) * 2);
-        //     self.manager.ith_var((base + encode_var) * 2 + 1);
-        //     symbols.insert(format!("automata{}", encode_var), (base + encode_var) * 2);
-        // }
-        // let mut init = self.manager.constant(false);
-        // for init_state in self.init_states.iter() {
-        //     init |= self.automata_state_encode(base, num_encode_var, *init_state);
-        // }
-        // let mut trans = self.manager.constant(false);
-        // for state in 0..self.num_state() {
-        //     for (next, label) in self.forward[state].iter() {
-        //         let next = self
-        //             .automata_state_encode(base, num_encode_var, *next)
-        //             .next_state();
-        //         let state = self.automata_state_encode(base, num_encode_var, state);
-        //         trans |= next & label & state;
-        //     }
-        // }
-        // let mut fair = self.manager.constant(false);
-        // for fair_state in self.accepting_states.iter() {
-        //     fair |= self.automata_state_encode(base, num_encode_var, *fair_state);
-        // }
-        // FsmBdd {
-        //     symbols,
-        //     manager: self.manager.clone(),
-        //     init,
-        //     trans,
-        //     fair,
-        // }
-        todo!()
+        let mut symbols = self.symbols.clone();
+        let base = symbols.len();
+        let num_encode_var = usize::BITS as usize - (self.num_state() - 1).leading_zeros() as usize;
+        for encode_var in 0..num_encode_var {
+            self.manager.ith_var((base + encode_var) * 2);
+            self.manager.ith_var((base + encode_var) * 2 + 1);
+            symbols.insert(format!("automata{}", encode_var), (base + encode_var) * 2);
+        }
+        let mut init = self.manager.constant(false);
+        for init_state in self.init_states.iter() {
+            init |= self.automata_state_encode(base, num_encode_var, *init_state);
+        }
+        let mut trans = self.manager.constant(false);
+        for state in 0..self.num_state() {
+            for (next, label) in self.forward[state].iter() {
+                let next = self
+                    .automata_state_encode(base, num_encode_var, *next)
+                    .next_state();
+                let state = self.automata_state_encode(base, num_encode_var, state);
+                trans |= next & label & state;
+            }
+        }
+        let trans = Trans::new(&self.manager, vec![trans], TransBddMethod::Monolithic);
+        let mut fair = self.manager.constant(false);
+        for fair_state in self.accepting_states.iter() {
+            fair |= self.automata_state_encode(base, num_encode_var, *fair_state);
+        }
+        FsmBdd {
+            symbols,
+            manager: self.manager.clone(),
+            init,
+            invariants: self.manager.constant(true),
+            trans,
+            justice: vec![fair],
+        }
     }
 }

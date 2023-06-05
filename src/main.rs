@@ -5,12 +5,12 @@ mod cav00;
 mod command;
 mod ltl;
 mod partitioned;
+mod traditional;
 mod util;
 
-use crate::partitioned::PartitionedSmc;
-use automata::BuchiAutomata;
 use clap::Parser;
-use smv::{bdd::SmvBdd, Smv};
+use command::Algorithm;
+use smv::Smv;
 
 type BddManager = cudd::Cudd;
 type Bdd = cudd::Bdd;
@@ -28,8 +28,8 @@ fn main() {
 
     // LMCS2006
     // "../MC-Benchmark/partitioned-smc/abp4-flat-p2.smv";
-    // "../MC-Benchmark/partitioned-smc/abp8-flat-p2.smv";
-    // "../MC-Benchmark/partitioned-smc/prod-cons-flat-p0.smv";
+    "../MC-Benchmark/partitioned-smc/abp8-flat-p0.smv";
+    // "../MC-Benchmark/partitioned-smc/prod-cons-flat-p2.smv";
     // "../MC-Benchmark/partitioned-smc/production-cell-flat-p1.smv";
 
     // "../MC-Benchmark/NuSMV-2.6-examples/example_cmu/dme1-flat.smv";
@@ -41,17 +41,20 @@ fn main() {
     // "../MC-Benchmark/partitioned-smc/viscoherencep5-flat.smv";
 
     // HWMCC17
-    "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/cunim1ro-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/cuhanoi7ro-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/cuhanoi10ro-flat.smv";
+    // "../MC-Benchmark/partitioned-smc/cuabq2mfro-flat.smv";
+    
     // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";
+    // "../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv";
 
     // HWMCC19
     // "../MC-Benchmark/hwmcc19/single/aig/goel/industry/cal9/cal9-flat.smv";
 
+
     // "../MC-Benchmark/hwmcc17/live/arbi0s08bugp03-flat.smv").unwrap();
     // "../MC-Benchmark/hwmcc17/live/cutarb8ro-flat.smv").unwrap();
-    // "../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv").unwrap();
-    // "../MC-Benchmark/hwmcc17/live/cuhanoi7ro-flat.smv").unwrap();
-    // "../MC-Benchmark/hwmcc17/live/cuhanoi10ro-flat.smv").unwrap();
     // "../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv").unwrap();
     // "../MC-Benchmark/hwmcc17/live/cunim1ro-flat.smv").unwrap();
     // "../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
@@ -60,17 +63,12 @@ fn main() {
 
     let args = command::Args::parse();
     let smv = Smv::from_file(input_file).unwrap();
-    // smv.flatten_defines();
     let manager = BddManager::new();
-    let smv_bdd = SmvBdd::new(&manager, &smv, &[]);
-    let fsmbdd = smv_bdd.to_fsmbdd(args.trans_method.into());
-    let ba = BuchiAutomata::from_ltl(
-        ltl::get_ltl(&smv, &args.ltl_extend_trans),
-        &manager,
-        &smv_bdd.symbols,
-        &smv_bdd.defines,
-    );
-
-    let time = partitioned::check(manager, fsmbdd, ba, args.parallel);
-    println!("{:?}", time);
+    let algorithm = match args.algorithm {
+        Algorithm::Partitioned => partitioned::check,
+        Algorithm::Traditional => traditional::check,
+        Algorithm::Cav00 => cav00::check,
+    };
+    let (res, time) = algorithm(manager, smv, args);
+    println!("res: {}, time: {:?}", res, time);
 }

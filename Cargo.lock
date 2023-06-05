@@ -387,8 +387,6 @@ dependencies = [
 [[package]]
 name = "sylvan-sys"
 version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6199a937c971cf380984d78fdb390670bcdc415ea9102df14ea99604bd6c6034"
 dependencies = [
  "cmake",
  "libc",

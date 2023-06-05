@@ -1,4 +1,8 @@
-use crate::{automata::BuchiAutomata, Bdd, BddManager};
+use super::{
+    other::Message,
+    slice::{Slice, SliceManager},
+};
+use crate::{Bdd, BddManager};
 use fsmbdd::FsmBdd;
 use std::{
     cmp::max,
@@ -9,40 +13,18 @@ use std::{
     },
 };
 
-enum Message {
-    Data(Bdd, usize),
-    GC(Bdd),
-    Quit,
-}
-
 pub struct Worker {
     id: usize,
     manager: BddManager,
     fsmbdd: FsmBdd<BddManager>,
+    slice: Option<Slice>,
+    slice_manager: Arc<SliceManager>,
     sender: Vec<Sender<Message>>,
     receiver: Receiver<Message>,
     active: Arc<Mutex<i32>>,
-    forward: Vec<(usize, Bdd)>,
-    backward: Vec<(usize, Bdd)>,
 }
 
 impl Worker {
-    #[inline]
-    fn propagate(&mut self, ba_trans: &Vec<(usize, Bdd)>, data: Bdd) {
-        if data.is_constant(false) {
-            return;
-        }
-        for (next, label) in ba_trans {
-            let message = &data & label;
-            if !message.is_constant(false) {
-                self.active.lock().unwrap().add_assign(1);
-                self.sender[*next]
-                    .send(Message::Data(message, self.id))
-                    .unwrap();
-            }
-        }
-    }
-
     fn quit(&mut self) {
         for i in 0..self.sender.len() {
             if i != self.id {
@@ -51,7 +33,31 @@ impl Worker {
         }
     }
 
-    pub fn reset(&mut self) {
+    fn slice_check(&self, state: &Bdd) {
+        if let Some(slice) = &self.slice {
+            assert!((state & !slice.bdd(&self.manager)).is_constant(false))
+        } else {
+            assert!(state.is_constant(false))
+        }
+    }
+
+    fn propagate(&mut self, state: &Bdd) {
+        if state.is_constant(false) {
+            return;
+        }
+        let slices = self.slice_manager.get_slices();
+        for i in 0..slices.len() {
+            let slice_state = state & slices[i].bdd(&self.manager);
+            if !slice_state.is_constant(false) {
+                self.active.lock().unwrap().add_assign(1);
+                self.sender[i]
+                    .send(Message::Data(slice_state, self.id, slices[i].clone()))
+                    .unwrap();
+            }
+        }
+    }
+
+    pub fn reset(&mut self, slice: Option<Slice>) {
         while let Ok(message) = self.receiver.try_recv() {
             match message {
                 Message::Quit => (),
@@ -60,21 +66,23 @@ impl Worker {
         }
         let mut active = self.active.lock().unwrap();
         *active = max(self.id as i32 + 1, *active);
+        self.slice = slice;
     }
 
-    pub fn start(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
+    pub fn reachable(&mut self, from: Bdd, forward: bool, constraint: Option<Bdd>) -> Bdd {
         let mut reach = self.manager.constant(false);
-        let mut init = self.manager.translocate(&init);
+        let from = self.manager.translocate(&from);
         let constraint = constraint.map(|bdd| self.manager.translocate(&bdd));
-        let ba_trans = if forward {
-            self.forward.clone()
+        let iamge_computation = if forward {
+            FsmBdd::<BddManager>::post_image
         } else {
-            self.backward.clone()
+            FsmBdd::<BddManager>::pre_image
         };
-        if !forward && init != self.manager.constant(false) {
-            init = self.fsmbdd.pre_image(&init);
+        self.slice_check(&from);
+        if !from.is_constant(false) {
+            let image = iamge_computation(&self.fsmbdd, &from);
+            self.propagate(&image);
         }
-        self.propagate(&ba_trans, init);
         loop {
             let mut active = self.active.lock().unwrap();
             active.sub_assign(1);
@@ -86,13 +94,14 @@ impl Worker {
             }
             let mut update = self.manager.constant(false);
             match self.receiver.recv().unwrap() {
-                Message::Data(data, src) => {
+                Message::Data(data, src, slice) => {
+                    assert!(self.slice.clone().unwrap() == slice);
                     update |= self.manager.translocate(&data);
                     self.active.lock().unwrap().add_assign(1);
                     self.sender[src].send(Message::GC(data)).unwrap();
                 }
                 Message::GC(bdd) => {
-                    drop(bdd);
+                    drop(&bdd);
                 }
                 Message::Quit => {
                     return reach;
@@ -101,37 +110,28 @@ impl Worker {
             let mut num_update: i32 = 0;
             while let Ok(message) = self.receiver.try_recv() {
                 match message {
-                    Message::Data(data, src) => {
-                        update |= self.manager.translocate(&data);
+                    Message::Data(data, src, slice) => {
                         num_update -= 1;
+                        assert!(self.slice.clone().unwrap() == slice);
+                        update |= self.manager.translocate(&data);
                         self.active.lock().unwrap().add_assign(1);
                         self.sender[src].send(Message::GC(data)).unwrap();
                     }
                     Message::GC(bdd) => {
                         num_update -= 1;
-                        drop(bdd);
+                        drop(&bdd);
                     }
                     Message::Quit => panic!(),
                 }
             }
-            if !forward {
-                update &= !&reach;
-                if let Some(constraint) = &constraint {
-                    update &= constraint;
-                }
-                reach |= &update;
+            update &= !&reach;
+            if let Some(constraint) = &constraint {
+                update &= constraint;
             }
+            reach |= &update;
             if !update.is_constant(false) {
-                let mut update = if forward {
-                    self.fsmbdd.post_image(&update)
-                } else {
-                    self.fsmbdd.pre_image(&update)
-                };
-                if forward {
-                    update &= !&reach;
-                    reach |= &update;
-                }
-                self.propagate(&ba_trans, update);
+                let image = iamge_computation(&self.fsmbdd, &update);
+                self.propagate(&image);
             }
             let mut active = self.active.lock().unwrap();
             assert!(*active > 0);
@@ -141,35 +141,31 @@ impl Worker {
         }
     }
 
-    pub fn create_workers(fsmbdd: &FsmBdd<BddManager>, automata: &BuchiAutomata) -> Vec<Self> {
+    pub fn create_workers(
+        fsmbdd: &FsmBdd<BddManager>,
+        num_worker: usize,
+        slice_manager: Arc<SliceManager>,
+    ) -> Vec<Self> {
         let mut recievers = vec![];
         let mut senders = vec![];
         let mut workers = vec![];
         let active = Arc::new(Mutex::new(0));
-        for _ in 0..automata.num_state() {
+        for _ in 0..num_worker {
             let (sender, receiver) = channel();
             recievers.push(receiver);
             senders.push(sender);
         }
         for (id, receiver) in recievers.into_iter().enumerate() {
             let fsmbdd = fsmbdd.clone_with_new_manager();
-            let mut forward = automata.forward[id].clone();
-            let mut backward = automata.backward[id].clone();
-            for (_, bdd) in forward.iter_mut() {
-                *bdd = fsmbdd.manager.translocate(bdd);
-            }
-            for (_, bdd) in backward.iter_mut() {
-                *bdd = fsmbdd.manager.translocate(bdd);
-            }
             workers.push(Self {
                 id,
                 manager: fsmbdd.manager.clone(),
                 fsmbdd,
                 sender: senders.clone(),
-                receiver: receiver,
+                receiver,
                 active: active.clone(),
-                forward,
-                backward,
+                slice: None,
+                slice_manager: slice_manager.clone(),
             })
         }
         workers

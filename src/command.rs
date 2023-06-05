@@ -7,6 +7,13 @@ pub enum TransMethod {
     Partition,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+pub enum Algorithm {
+    Partitioned,
+    Traditional,
+    Cav00,
+}
+
 impl Into<TransBddMethod> for TransMethod {
     fn into(self) -> TransBddMethod {
         match self {
@@ -19,6 +26,10 @@ impl Into<TransBddMethod> for TransMethod {
 #[derive(Parser, Debug)]
 /// Partitioned Symbolic Model Checking
 pub struct Args {
+    /// model checking algorithm
+    #[arg(short = 'a', long, value_enum, default_value_t = Algorithm::Partitioned)]
+    pub algorithm: Algorithm,
+
     /// trans partition method
     #[arg(short = 'm', long, value_enum, default_value_t = TransMethod::Partition)]
     pub trans_method: TransMethod,
