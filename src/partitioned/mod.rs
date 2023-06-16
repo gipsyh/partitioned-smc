@@ -128,5 +128,9 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
     );
     let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
     let start = Instant::now();
-    (partitioned_smc.check(), start.elapsed())
+    dbg!("partitioned smc start checking");
+    let res = partitioned_smc.check();
+    let time = start.elapsed();
+    drop(partitioned_smc);
+    (res, time)
 }

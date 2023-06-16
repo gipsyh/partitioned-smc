@@ -78,7 +78,7 @@ impl PartitionedSmc {
             let init = from[i].clone();
             let constraint = constraint.map(|constraint| constraint[i].clone());
             joins.push(spawn(move || {
-                let reach = worker.start(forward, init, constraint);
+                let reach = worker.reachable(forward, init, constraint);
                 (reach, worker)
             }));
         }

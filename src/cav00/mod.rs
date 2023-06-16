@@ -21,7 +21,6 @@ use std::{
 pub struct Cav00 {
     manager: BddManager,
     fsmbdd: FsmBdd<BddManager>,
-    init_slice: Vec<Slice>,
     slice_manager: Arc<SliceManager>,
     workers: Vec<Worker>,
 }
@@ -42,12 +41,11 @@ impl Cav00 {
             }
             init_slice.extend(neg);
         }
-        let slice_manager = Arc::new(SliceManager::new(init_slice.clone(), num_worker));
+        let slice_manager = Arc::new(SliceManager::new(init_slice, num_worker));
         let workers = Worker::create_workers(&fsmbdd, num_worker, slice_manager.clone());
         Self {
             manager,
             fsmbdd,
-            init_slice,
             slice_manager,
             workers,
         }
@@ -60,18 +58,18 @@ impl Cav00 {
         constraint: Option<Bdd>,
         contain_from: bool,
     ) -> Bdd {
-        self.slice_manager.reset_slice(self.init_slice.clone());
+        let slices = self.slice_manager.get_slices();
         let mut workers = take(&mut self.workers);
         let mut joins = Vec::new();
-        for i in 0..self.init_slice.len() {
-            workers[i].reset(Some(self.init_slice[i].clone()));
+        for i in 0..slices.len() {
+            workers[i].reset(Some(slices[i].clone()));
         }
-        for i in self.init_slice.len()..workers.len() {
+        for i in slices.len()..workers.len() {
             workers[i].reset(None);
         }
         for (id, mut worker) in workers.into_iter().enumerate() {
-            let from = if id < self.init_slice.len() {
-                from.clone() & self.init_slice[id].bdd(&self.manager)
+            let from = if id < slices.len() {
+                from.clone() & slices[id].bdd(&self.manager)
             } else {
                 self.manager.constant(false)
             };
@@ -126,7 +124,7 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
     let ltl_fsmbdd =
         BuchiAutomata::from_ltl(ltl, &manager, &smvbdd.symbols, &smvbdd.defines).to_fsmbdd();
     let product = fsmbdd.product(&ltl_fsmbdd);
-    let mut cav00 = Cav00::new(manager, 8, product, &[0, 1, 2]);
+    let mut cav00 = Cav00::new(manager, 8, product, &[1, 3]);
     let start = Instant::now();
     (cav00.check(), start.elapsed())
 }

@@ -62,7 +62,7 @@ impl Worker {
         *active = max(self.id as i32 + 1, *active);
     }
 
-    pub fn start(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
+    pub fn reachable(&mut self, forward: bool, init: Bdd, constraint: Option<Bdd>) -> Bdd {
         let mut reach = self.manager.constant(false);
         let mut init = self.manager.translocate(&init);
         let constraint = constraint.map(|bdd| self.manager.translocate(&bdd));
@@ -94,9 +94,7 @@ impl Worker {
                 Message::GC(bdd) => {
                     drop(bdd);
                 }
-                Message::Quit => {
-                    return reach;
-                }
+                Message::Quit => return reach,
             }
             let mut num_update: i32 = 0;
             while let Ok(message) = self.receiver.try_recv() {

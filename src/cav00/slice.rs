@@ -1,5 +1,8 @@
-use std::{sync::RwLock, ops::{Deref, DerefMut}};
 use crate::{Bdd, BddManager};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::RwLock,
+};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Slice {
@@ -43,10 +46,6 @@ impl SliceManager {
             max_slice,
             slices: RwLock::new(slice),
         }
-    }
-
-    pub fn reset_slice(&self, slice: Vec<Slice>) {
-        *self.slices.write().unwrap() = slice
     }
 
     pub fn get_slices(&self) -> Vec<Slice> {
