@@ -36,14 +36,14 @@ impl Slice {
 }
 
 pub struct SliceManager {
-    max_slice: usize,
+    _max_slice: usize,
     slices: RwLock<Vec<Slice>>,
 }
 
 impl SliceManager {
     pub fn new(slice: Vec<Slice>, max_slice: usize) -> Self {
         Self {
-            max_slice,
+            _max_slice: max_slice,
             slices: RwLock::new(slice),
         }
     }
@@ -52,7 +52,7 @@ impl SliceManager {
         self.slices.read().unwrap().clone()
     }
 
-    pub fn add_slice(&self, id: usize, var: usize) -> bool {
+    pub fn _add_slice(&self, _id: usize, _var: usize) -> bool {
         todo!()
     }
 }

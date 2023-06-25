@@ -25,7 +25,6 @@ fn main() {
     // "../MC-Benchmark/examples/counter/2bit/counter-flat.smv";
 
     let input_file =
-
     // LMCS2006
     // "abp8-flat-p1.smv";
     // "prod-cons-flat-p2.smv";
