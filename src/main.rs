@@ -1,5 +1,3 @@
-#![feature(stmt_expr_attributes)]
-
 mod automata;
 mod cav00;
 mod command;
