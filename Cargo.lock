@@ -3,14 +3,6 @@
 version = 3
 
 [[package]]
-name = "aig"
-version = "0.1.0"
-dependencies = [
- "gipsyh-aiger",
- "logic-form",
-]
-
-[[package]]
 name = "anstream"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -200,12 +192,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gipsyh-aiger"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f1a343baac81d1e32038ff5b53d203f05d4237b83e86772aadb495e958c61d6"
-
-[[package]]
 name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -320,7 +306,6 @@ dependencies = [
 name = "partitioned-smc"
 version = "0.1.0"
 dependencies = [
- "aig",
  "clap",
  "cudd",
  "fsmbdd",
