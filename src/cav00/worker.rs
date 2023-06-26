@@ -101,7 +101,7 @@ impl Worker {
                     self.sender[src].send(Message::GC(data)).unwrap();
                 }
                 Message::GC(bdd) => {
-                    drop(&bdd);
+                    drop(bdd);
                 }
                 Message::Quit => {
                     return reach;
@@ -119,7 +119,7 @@ impl Worker {
                     }
                     Message::GC(bdd) => {
                         num_update -= 1;
-                        drop(&bdd);
+                        drop(bdd);
                     }
                     Message::Quit => panic!(),
                 }
