@@ -29,13 +29,13 @@ fn main() {
 
     // HWMCC08
     // "viscoherencep1-flat.smv"; // 1 3
-    "viscoherencep2-flat.smv";
+    // "viscoherencep2-flat.smv";
     // "viscoherencep5-flat.smv";
 
     // HWMCC17
     // "cunim1ro-flat.smv";
     // "cuhanoi7ro-flat.smv";
-    // "cuhanoi10ro-flat.smv";
+    "cuhanoi10ro-flat.smv";
     // "cuabq2mfro-flat.smv";
 
     // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";

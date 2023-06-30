@@ -91,7 +91,7 @@ impl PartitionedSmc {
 fn get_ltl(smv: &Smv, extend_trans: &[usize]) -> Expr {
     dbg!(&smv.trans.len());
     dbg!(extend_trans);
-    let smv = smv.flatten_defines();
+    // let smv = smv.flatten_defines();
     let trans_ltl = extend_trans
         .iter()
         .fold(Expr::LitExpr(true), |fold, extend| {

@@ -10,8 +10,7 @@ use std::{
 };
 
 enum Message {
-    Data(Bdd, usize),
-    GC(Bdd),
+    Data(Bdd),
     Quit,
 }
 
@@ -36,9 +35,7 @@ impl Worker {
             let message = &data & label;
             if !message.is_constant(false) {
                 self.active.lock().unwrap().add_assign(1);
-                self.sender[*next]
-                    .send(Message::Data(message, self.id))
-                    .unwrap();
+                self.sender[*next].send(Message::Data(message)).unwrap();
             }
         }
     }
@@ -86,28 +83,17 @@ impl Worker {
             }
             let mut update = self.manager.constant(false);
             match self.receiver.recv().unwrap() {
-                Message::Data(data, src) => {
+                Message::Data(data) => {
                     update |= self.manager.translocate(&data);
-                    self.active.lock().unwrap().add_assign(1);
-                    self.sender[src].send(Message::GC(data)).unwrap();
-                }
-                Message::GC(bdd) => {
-                    drop(bdd);
                 }
                 Message::Quit => return reach,
             }
             let mut num_update: i32 = 0;
             while let Ok(message) = self.receiver.try_recv() {
                 match message {
-                    Message::Data(data, src) => {
+                    Message::Data(data) => {
                         update |= self.manager.translocate(&data);
                         num_update -= 1;
-                        self.active.lock().unwrap().add_assign(1);
-                        self.sender[src].send(Message::GC(data)).unwrap();
-                    }
-                    Message::GC(bdd) => {
-                        num_update -= 1;
-                        drop(bdd);
                     }
                     Message::Quit => panic!(),
                 }
