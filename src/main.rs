@@ -1,5 +1,4 @@
 mod automata;
-mod cav00;
 mod command;
 mod ltl;
 mod partitioned;
@@ -57,7 +56,6 @@ fn main() {
     let algorithm = match args.algorithm {
         Algorithm::Partitioned => partitioned::check,
         Algorithm::Traditional => traditional::check,
-        Algorithm::Cav00 => cav00::check,
     };
     let (res, time) = algorithm(manager, smv, args);
     println!("res: {}, time: {:?}", res, time);

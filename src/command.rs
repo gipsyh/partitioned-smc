@@ -11,7 +11,6 @@ pub enum TransMethod {
 pub enum Algorithm {
     Partitioned,
     Traditional,
-    Cav00,
 }
 
 impl Into<TransBddMethod> for TransMethod {
