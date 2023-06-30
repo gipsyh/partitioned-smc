@@ -50,7 +50,7 @@ fn main() {
     // "../MC-Benchmark/hwmcc17/live/cujc12ro-flat.smv";
     // "../MC-Benchmark/hwmcc17/live/arbixs08bugp03-flat.smv").unwrap();
     // "../MC-Benchmark/hwmcc17/single/ringp0-flat.smv";
-    let input_file = format!("../benchmark/{}", input_file);
+    let input_file = format!("./benchmark/{}", input_file);
     let args = command::Args::parse();
     let smv = Smv::from_file(input_file).unwrap();
     let manager = BddManager::new();
