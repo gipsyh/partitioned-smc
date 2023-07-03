@@ -4,7 +4,6 @@ use std::{iter::repeat_with, mem::take, thread::spawn};
 use sylvan::{lace_call_back, LaceCallback, LaceWorkerContext};
 
 impl PartitionedSmc {
-    #[allow(unused)]
     pub fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
@@ -12,7 +11,9 @@ impl PartitionedSmc {
         let mut y = 0;
         loop {
             y += 1;
-            dbg!(y);
+            if self.args.verbose {
+                dbg!(y);
+            }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
             let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             for i in 0..frontier.len() {
@@ -34,7 +35,6 @@ impl PartitionedSmc {
         reach
     }
 
-    #[allow(unused)]
     pub fn post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
@@ -42,7 +42,9 @@ impl PartitionedSmc {
         let mut post_deep = 0;
         loop {
             post_deep += 1;
-            dbg!(post_deep);
+            if self.args.verbose {
+                dbg!(post_deep);
+            }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
             let mut tmp = vec![self.manager.constant(false); self.automata.num_state()];
             for i in 0..frontier.len() {
@@ -120,7 +122,7 @@ impl LaceCallback<LaceReachableCallbackArg<'_>, Vec<Bdd>> for LacePreReachableCa
 }
 
 impl PartitionedSmc {
-    pub fn lace_post_reachable_inner(
+    fn lace_post_reachable_inner(
         &mut self,
         mut context: LaceWorkerContext,
         from: &[Bdd],
@@ -130,7 +132,9 @@ impl PartitionedSmc {
         let mut post_deep = 0;
         loop {
             post_deep += 1;
-            dbg!(post_deep);
+            if self.args.verbose {
+                dbg!(post_deep);
+            }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
             let mut tmp = vec![self.manager.constant(false); self.automata.num_state()];
             for i in 0..frontier.len() {
@@ -177,10 +181,12 @@ impl PartitionedSmc {
         assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
-        // let mut y = 0;
+        let mut y = 0;
         loop {
-            // y += 1;
-            // dbg!(y);
+            y += 1;
+            if self.args.verbose {
+                dbg!(y);
+            }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
             // let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             frontier

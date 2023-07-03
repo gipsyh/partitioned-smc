@@ -41,7 +41,11 @@ pub struct Args {
     #[arg(short = 'e', long)]
     pub ltl_extend_trans: Vec<usize>,
 
-    /// print partitioned node time
-    #[arg(long = "pnt", default_value_t = false)]
-    pub partitioned_node_time: bool,
+    /// lace optimize
+    #[arg(long, default_value_t = false)]
+    pub close_lace_optimize: bool,
+
+    /// verbose
+    #[arg(short, long, default_value_t = false)]
+    pub verbose: bool,
 }

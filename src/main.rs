@@ -33,9 +33,9 @@ fn main() {
     // "viscoherencep5-flat.smv";
 
     // HWMCC17
-    // "cunim1ro-flat.smv";
+    "cunim1ro-flat.smv";
     // "cuhanoi7ro-flat.smv";
-    "cuhanoi10ro-flat.smv";
+    // "cuhanoi10ro-flat.smv";
     // "cuabq2mfro-flat.smv";
 
     // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";

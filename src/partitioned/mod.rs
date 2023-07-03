@@ -1,9 +1,8 @@
+mod fair;
 mod reachable;
 mod worker;
 
-use crate::{
-    automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, Bdd, BddManager,
-};
+use crate::{automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, BddManager};
 use fsmbdd::FsmBdd;
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::time::{Duration, Instant};
@@ -14,7 +13,7 @@ pub struct PartitionedSmc {
     fsmbdd: FsmBdd<BddManager>,
     automata: BuchiAutomata,
     workers: Vec<Worker>,
-    parallel: bool,
+    args: Args,
 }
 
 impl PartitionedSmc {
@@ -22,10 +21,10 @@ impl PartitionedSmc {
         manager: BddManager,
         fsmbdd: FsmBdd<BddManager>,
         automata: BuchiAutomata,
-        parallel: bool,
+        args: Args,
     ) -> Self {
         let mut workers = Vec::new();
-        if parallel {
+        if args.parallel {
             workers = Worker::create_workers(&fsmbdd, &automata);
         }
         Self {
@@ -33,36 +32,8 @@ impl PartitionedSmc {
             fsmbdd,
             automata,
             workers,
-            parallel,
+            args,
         }
-    }
-
-    fn fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
-        let mut fair_states = vec![self.manager.constant(false); self.automata.num_state()];
-        for state in self.automata.accepting_states.iter() {
-            fair_states[*state] = init_reach[*state].clone();
-            // fair_states[*state] = self.manager.constant(true);
-        }
-        let mut x = 0;
-        loop {
-            x += 1;
-            dbg!(x);
-            let backward = if self.parallel {
-                self.parallel_reachable_state(&fair_states, false, Some(init_reach))
-            } else {
-                // self.pre_reachable(&fair_states, None)
-                self.lace_pre_reachable(&fair_states, Some(init_reach))
-            };
-            let mut new_fair_sets = Vec::new();
-            for i in 0..fair_states.len() {
-                new_fair_sets.push(&fair_states[i] & &backward[i]);
-            }
-            if fair_states == new_fair_sets {
-                break;
-            }
-            fair_states = new_fair_sets;
-        }
-        fair_states
     }
 
     pub fn check(&mut self) -> bool {
@@ -70,15 +41,23 @@ impl PartitionedSmc {
         for init_state in self.automata.init_states.iter() {
             reach[*init_state] |= &self.fsmbdd.init;
         }
-        let forward = if self.parallel {
+        let forward = if self.args.parallel {
             self.parallel_reachable_state(&reach, true, None)
         } else {
-            self.lace_post_reachable(&reach)
+            if self.args.close_lace_optimize {
+                self.post_reachable(&reach)
+            } else {
+                self.lace_post_reachable(&reach)
+            }
         };
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
         }
-        let fair_states = self.fair_states(&reach);
+        let fair_states = if self.args.close_lace_optimize {
+            self.fair_states(&reach)
+        } else {
+            self.lace_fair_states(&reach)
+        };
         for accept in self.automata.accepting_states.iter() {
             if &reach[*accept] & &fair_states[*accept] != self.manager.constant(false) {
                 return false;
@@ -126,9 +105,9 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
         &smv_bdd.symbols,
         &smv_bdd.defines,
     );
-    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args.parallel);
-    let start = Instant::now();
+    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args);
     dbg!("partitioned smc start checking");
+    let start = Instant::now();
     let res = partitioned_smc.check();
     let time = start.elapsed();
     drop(partitioned_smc);
