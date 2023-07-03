@@ -51,7 +51,7 @@ impl PartitionedSmc {
                 self.parallel_reachable_state(&fair_states, false, Some(init_reach))
             } else {
                 // self.pre_reachable(&fair_states, None)
-                self.pre_reachable(&fair_states, Some(init_reach))
+                self.lace_pre_reachable(&fair_states, Some(init_reach))
             };
             let mut new_fair_sets = Vec::new();
             for i in 0..fair_states.len() {
@@ -73,7 +73,7 @@ impl PartitionedSmc {
         let forward = if self.parallel {
             self.parallel_reachable_state(&reach, true, None)
         } else {
-            self.post_reachable(&reach)
+            self.lace_post_reachable(&reach)
         };
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
