@@ -33,9 +33,13 @@ pub struct Args {
     #[arg(short = 'm', long, value_enum, default_value_t = TransMethod::Partition)]
     pub trans_method: TransMethod,
 
+    /// old impl
+    #[arg(long, default_value_t = false)]
+    pub old_impl: bool,
+
     /// parallel
-    #[arg(short, long, default_value_t = false)]
-    pub parallel: bool,
+    #[arg(short, long, default_value_t = 1)]
+    pub parallel: usize,
 
     /// extend trans
     #[arg(short = 'e', long)]

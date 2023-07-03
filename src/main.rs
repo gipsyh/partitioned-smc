@@ -9,8 +9,6 @@ use clap::Parser;
 use command::Algorithm;
 use smv::Smv;
 
-// type BddManager = cudd::Cudd;
-// type Bdd = cudd::Bdd;
 type BddManager = sylvan::Sylvan;
 type Bdd = sylvan::Bdd;
 
@@ -52,7 +50,7 @@ fn main() {
     let input_file = format!("./benchmark/{}", input_file);
     let args = command::Args::parse();
     let smv = Smv::from_file(input_file).unwrap();
-    let manager = BddManager::new();
+    let manager = BddManager::init(args.parallel);
     let algorithm = match args.algorithm {
         Algorithm::Partitioned => partitioned::check,
         Algorithm::Traditional => traditional::check,

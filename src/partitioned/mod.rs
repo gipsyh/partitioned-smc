@@ -24,7 +24,7 @@ impl PartitionedSmc {
         args: Args,
     ) -> Self {
         let mut workers = Vec::new();
-        if args.parallel {
+        if args.old_impl {
             workers = Worker::create_workers(&fsmbdd, &automata);
         }
         Self {
@@ -41,7 +41,7 @@ impl PartitionedSmc {
         for init_state in self.automata.init_states.iter() {
             reach[*init_state] |= &self.fsmbdd.init;
         }
-        let forward = if self.args.parallel {
+        let forward = if self.args.old_impl {
             self.parallel_reachable_state(&reach, true, None)
         } else {
             if self.args.close_lace_optimize {

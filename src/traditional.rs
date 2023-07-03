@@ -12,7 +12,15 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
 
     println!("traditional smc begin");
     let start = Instant::now();
-    let forward = product.reachable_from_init();
-    let fair_cycle = product.fair_cycle_with_constrain(&forward);
+    let forward = if args.close_lace_optimize {
+        product.reachable_from_init()
+    } else {
+        product.lace_reachable_from_init()
+    };
+    let fair_cycle = if args.close_lace_optimize {
+        product.fair_cycle_with_constrain(&forward)
+    } else {
+        product.lace_fair_cycle_with_constrain(&forward)
+    };
     ((fair_cycle & forward).is_constant(false), start.elapsed())
 }

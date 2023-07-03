@@ -150,7 +150,6 @@ impl PartitionedSmc {
                     .take(tmp.len())
                     .collect();
             image.reverse();
-            // let image: Vec<Bdd> = tmp.iter().map(|x| self.fsmbdd.post_image(x)).collect();
             for i in 0..image.len() {
                 let update = &image[i] & !&reach[i];
                 reach[i] |= &update;
@@ -188,7 +187,6 @@ impl PartitionedSmc {
                 dbg!(y);
             }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
-            // let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             frontier
                 .iter()
                 .for_each(|x| self.fsmbdd.lace_spawn_pre_image(&mut context, x));

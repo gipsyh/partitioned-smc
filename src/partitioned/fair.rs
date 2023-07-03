@@ -28,7 +28,7 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = if self.args.parallel {
+            let backward = if self.args.old_impl {
                 self.parallel_reachable_state(&fair_states, false, Some(init_reach))
             } else {
                 // self.pre_reachable(&fair_states, None)
@@ -64,15 +64,11 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = if self.args.parallel {
-                self.parallel_reachable_state(&fair_states, false, Some(init_reach))
-            } else {
+            let backward = if self.args.close_lace_optimize {
                 // self.pre_reachable(&fair_states, None)
-                if self.args.close_lace_optimize {
-                    self.pre_reachable(&fair_states, Some(init_reach))
-                } else {
-                    self.lace_pre_reachable(&fair_states, Some(init_reach))
-                }
+                self.pre_reachable(&fair_states, Some(init_reach))
+            } else {
+                self.lace_pre_reachable(&fair_states, Some(init_reach))
             };
             fair_states
                 .iter()
