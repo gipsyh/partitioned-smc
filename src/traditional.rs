@@ -9,7 +9,6 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
     let ltl_fsmbdd =
         BuchiAutomata::from_ltl(ltl, &manager, &smvbdd.symbols, &smvbdd.defines).to_fsmbdd();
     let product = fsmbdd.product(&ltl_fsmbdd);
-
     println!("traditional smc begin");
     let start = Instant::now();
     let forward = if args.close_lace_optimize {

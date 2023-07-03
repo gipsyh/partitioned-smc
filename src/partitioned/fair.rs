@@ -32,11 +32,7 @@ impl PartitionedSmc {
                 self.parallel_reachable_state(&fair_states, false, Some(init_reach))
             } else {
                 // self.pre_reachable(&fair_states, None)
-                if self.args.close_lace_optimize {
-                    self.pre_reachable(&fair_states, Some(init_reach))
-                } else {
-                    self.lace_pre_reachable(&fair_states, Some(init_reach))
-                }
+                self.pre_reachable(&fair_states, Some(init_reach))
             };
             let mut new_fair_states = Vec::new();
             for i in 0..fair_states.len() {
@@ -64,12 +60,7 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = if self.args.close_lace_optimize {
-                // self.pre_reachable(&fair_states, None)
-                self.pre_reachable(&fair_states, Some(init_reach))
-            } else {
-                self.lace_pre_reachable(&fair_states, Some(init_reach))
-            };
+            let backward = self.lace_pre_reachable(&fair_states, Some(init_reach));
             fair_states
                 .iter()
                 .zip(backward.iter())
@@ -78,10 +69,6 @@ impl PartitionedSmc {
                 .take(fair_states.len())
                 .collect();
             new_fair_states.reverse();
-            // let mut new_fair_states = Vec::new();
-            // for i in 0..fair_states.len() {
-            //     new_fair_states.push(&fair_states[i] & &backward[i]);
-            // }
             if fair_states == new_fair_states {
                 break;
             }
