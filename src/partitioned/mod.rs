@@ -27,10 +27,7 @@ impl PartitionedSmc {
         automata: BuchiAutomata,
         args: Args,
     ) -> Self {
-        let mut workers = Vec::new();
-        if args.old_impl {
-            workers = Worker::create_workers(&fsmbdd, &automata);
-        }
+        let workers = Worker::create_workers(&fsmbdd, &automata);
         Self {
             manager,
             fsmbdd,
@@ -47,24 +44,22 @@ impl PartitionedSmc {
             reach[*init_state] |= &self.fsmbdd.init;
         }
         let start = Instant::now();
-        let forward = if self.args.old_impl {
-            self.parallel_reachable_state(&reach, true, None)
+        let forward = if self.args.close_lace_optimize {
+            self.post_reachable(&reach)
         } else {
-            if self.args.close_lace_optimize {
-                self.post_reachable(&reach)
-            } else {
-                lace_run(|context| self.lace_post_reachable(context, &reach))
-            }
+            lace_run(|context| self.lace_post_reachable(context, &reach))
         };
         self.statistic.post_reachable_time += start.elapsed();
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
         }
+        let start = Instant::now();
         let fair_states = if self.args.close_lace_optimize {
             self.fair_states(&reach)
         } else {
             lace_run(|context| self.lace_fair_states(context, &reach))
         };
+        self.statistic.fair_cycle_time += start.elapsed();
         for accept in self.automata.accepting_states.iter() {
             if &reach[*accept] & &fair_states[*accept] != self.manager.constant(false) {
                 return false;
@@ -77,7 +72,7 @@ impl PartitionedSmc {
 fn get_ltl(smv: &Smv, extend_trans: &[usize]) -> Expr {
     dbg!(&smv.trans.len());
     dbg!(extend_trans);
-    // let smv = smv.flatten_defines();
+    let smv = smv.flatten_defines();
     let trans_ltl = extend_trans
         .iter()
         .fold(Expr::LitExpr(true), |fold, extend| {

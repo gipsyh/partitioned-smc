@@ -1,6 +1,5 @@
 use super::PartitionedSmc;
 use crate::Bdd;
-use std::iter::repeat_with;
 use sylvan::LaceWorkerContext;
 
 impl PartitionedSmc {
@@ -14,12 +13,8 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = if self.args.old_impl {
-                self.parallel_reachable_state(&fair_states, false, Some(init_reach))
-            } else {
-                // self.pre_reachable(&fair_states, None)
-                self.pre_reachable(&fair_states, Some(init_reach))
-            };
+            // self.pre_reachable(&fair_states, None)
+            let backward = self.pre_reachable(&fair_states, Some(init_reach));
             let mut new_fair_states = Vec::new();
             for i in 0..fair_states.len() {
                 new_fair_states.push(&fair_states[i] & &backward[i]);
@@ -47,14 +42,12 @@ impl PartitionedSmc {
             x += 1;
             dbg!(x);
             let backward = self.lace_pre_reachable(context, &fair_states, Some(init_reach));
-            fair_states
-                .iter()
-                .zip(backward.iter())
-                .for_each(|(x, y)| context.spawn_and(x, y));
-            let mut new_fair_states: Vec<Bdd> = repeat_with(|| context.sync_and())
-                .take(fair_states.len())
-                .collect();
-            new_fair_states.reverse();
+            fair_states.iter().zip(backward.iter()).for_each(|(x, y)| {
+                let x = x.clone();
+                let y = y.clone();
+                context.lace_spawn(|_| x & y)
+            });
+            let new_fair_states: Vec<Bdd> = context.lace_sync_multi(fair_states.len());
             if fair_states == new_fair_states {
                 break;
             }
