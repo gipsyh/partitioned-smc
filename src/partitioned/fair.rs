@@ -1,21 +1,7 @@
 use super::PartitionedSmc;
 use crate::Bdd;
 use std::iter::repeat_with;
-use sylvan::{lace_call_back, LaceCallback, LaceWorkerContext};
-
-struct LaceFairCallbackArg<'a> {
-    partitioned_smc: &'a mut PartitionedSmc,
-    init_reach: &'a [Bdd],
-}
-
-pub struct LaceFairCallback;
-
-impl LaceCallback<LaceFairCallbackArg<'_>, Vec<Bdd>> for LaceFairCallback {
-    fn callback(context: LaceWorkerContext, arg: &mut LaceFairCallbackArg) -> Vec<Bdd> {
-        arg.partitioned_smc
-            .lace_fair_states_inner(context, arg.init_reach)
-    }
-}
+use sylvan::LaceWorkerContext;
 
 impl PartitionedSmc {
     pub fn fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
@@ -46,7 +32,7 @@ impl PartitionedSmc {
         fair_states
     }
 
-    fn lace_fair_states_inner(
+    pub fn lace_fair_states(
         &mut self,
         mut context: LaceWorkerContext,
         init_reach: &[Bdd],
@@ -60,7 +46,7 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = self.lace_pre_reachable(&fair_states, Some(init_reach));
+            let backward = self.lace_pre_reachable(context, &fair_states, Some(init_reach));
             fair_states
                 .iter()
                 .zip(backward.iter())
@@ -75,13 +61,5 @@ impl PartitionedSmc {
             fair_states = new_fair_states;
         }
         fair_states
-    }
-
-    pub fn lace_fair_states(&mut self, init_reach: &[Bdd]) -> Vec<Bdd> {
-        let mut arg = LaceFairCallbackArg {
-            partitioned_smc: self,
-            init_reach,
-        };
-        lace_call_back::<LaceFairCallback, LaceFairCallbackArg, Vec<Bdd>>(&mut arg)
     }
 }

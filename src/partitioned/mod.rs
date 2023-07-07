@@ -3,13 +3,13 @@ mod reachable;
 mod statistic;
 mod worker;
 
+use self::statistic::Statistic;
 use crate::{automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, BddManager};
 use fsmbdd::FsmBdd;
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::time::{Duration, Instant};
+use sylvan::lace_run;
 use worker::Worker;
-
-use self::statistic::Statistic;
 
 pub struct PartitionedSmc {
     manager: BddManager,
@@ -46,22 +46,24 @@ impl PartitionedSmc {
         for init_state in self.automata.init_states.iter() {
             reach[*init_state] |= &self.fsmbdd.init;
         }
+        let start = Instant::now();
         let forward = if self.args.old_impl {
             self.parallel_reachable_state(&reach, true, None)
         } else {
             if self.args.close_lace_optimize {
                 self.post_reachable(&reach)
             } else {
-                self.lace_post_reachable(&reach)
+                lace_run(|context| self.lace_post_reachable(context, &reach))
             }
         };
+        self.statistic.post_reachable_time += start.elapsed();
         for i in 0..forward.len() {
             reach[i] = &forward[i] | &reach[i];
         }
         let fair_states = if self.args.close_lace_optimize {
             self.fair_states(&reach)
         } else {
-            self.lace_fair_states(&reach)
+            lace_run(|context| self.lace_fair_states(context, &reach))
         };
         for accept in self.automata.accepting_states.iter() {
             if &reach[*accept] & &fair_states[*accept] != self.manager.constant(false) {

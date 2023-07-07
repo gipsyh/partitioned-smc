@@ -1,7 +1,7 @@
 use super::PartitionedSmc;
 use crate::Bdd;
 use std::{iter::repeat_with, mem::take, thread::spawn, time::Instant};
-use sylvan::{lace_call_back, LaceCallback, LaceWorkerContext};
+use sylvan::LaceWorkerContext;
 
 impl PartitionedSmc {
     pub fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
@@ -97,32 +97,8 @@ impl PartitionedSmc {
     }
 }
 
-struct LaceReachableCallbackArg<'a> {
-    partitioned_smc: &'a mut PartitionedSmc,
-    constraint: Option<&'a [Bdd]>,
-    from: &'a [Bdd],
-}
-
-pub struct LacePostReachableCallback;
-
-impl LaceCallback<LaceReachableCallbackArg<'_>, Vec<Bdd>> for LacePostReachableCallback {
-    fn callback(context: LaceWorkerContext, arg: &mut LaceReachableCallbackArg) -> Vec<Bdd> {
-        arg.partitioned_smc
-            .lace_post_reachable_inner(context, arg.from)
-    }
-}
-
-pub struct LacePreReachableCallback;
-
-impl LaceCallback<LaceReachableCallbackArg<'_>, Vec<Bdd>> for LacePreReachableCallback {
-    fn callback(context: LaceWorkerContext, arg: &mut LaceReachableCallbackArg) -> Vec<Bdd> {
-        arg.partitioned_smc
-            .lace_pre_reachable_inner(context, arg.from, arg.constraint)
-    }
-}
-
 impl PartitionedSmc {
-    fn lace_post_reachable_inner(
+    pub fn lace_post_reachable(
         &mut self,
         mut context: LaceWorkerContext,
         from: &[Bdd],
@@ -150,7 +126,6 @@ impl PartitionedSmc {
                     .take(tmp.len())
                     .collect();
             image.reverse();
-            // let image: Vec<Bdd> = tmp.iter().map(|x| self.fsmbdd.post_image(x)).collect();
             for i in 0..image.len() {
                 let update = &image[i] & !&reach[i];
                 reach[i] |= &update;
@@ -163,16 +138,7 @@ impl PartitionedSmc {
         }
     }
 
-    pub fn lace_post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
-        let mut arg = LaceReachableCallbackArg {
-            partitioned_smc: self,
-            constraint: None,
-            from,
-        };
-        lace_call_back::<LacePostReachableCallback, LaceReachableCallbackArg, Vec<Bdd>>(&mut arg)
-    }
-
-    fn lace_pre_reachable_inner(
+    pub fn lace_pre_reachable(
         &mut self,
         mut context: LaceWorkerContext,
         from: &[Bdd],
@@ -196,7 +162,6 @@ impl PartitionedSmc {
                 .take(frontier.len())
                 .collect();
             image.reverse();
-            // let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             self.statistic.image_time += start.elapsed();
             let start = Instant::now();
             for i in 0..frontier.len() {
@@ -217,14 +182,5 @@ impl PartitionedSmc {
             frontier = new_frontier;
         }
         reach
-    }
-
-    pub fn lace_pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
-        let mut arg = LaceReachableCallbackArg {
-            partitioned_smc: self,
-            constraint,
-            from,
-        };
-        lace_call_back::<LacePreReachableCallback, LaceReachableCallbackArg, Vec<Bdd>>(&mut arg)
     }
 }
