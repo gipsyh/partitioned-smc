@@ -1,5 +1,6 @@
 mod fair;
 mod reachable;
+mod statistic;
 mod worker;
 
 use crate::{automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, BddManager};
@@ -8,12 +9,15 @@ use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::time::{Duration, Instant};
 use worker::Worker;
 
+use self::statistic::Statistic;
+
 pub struct PartitionedSmc {
     manager: BddManager,
     fsmbdd: FsmBdd<BddManager>,
     automata: BuchiAutomata,
     workers: Vec<Worker>,
     args: Args,
+    statistic: Statistic,
 }
 
 impl PartitionedSmc {
@@ -33,6 +37,7 @@ impl PartitionedSmc {
             automata,
             workers,
             args,
+            statistic: Statistic::default(),
         }
     }
 
@@ -110,6 +115,6 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
     let start = Instant::now();
     let res = partitioned_smc.check();
     let time = start.elapsed();
-    drop(partitioned_smc);
+    dbg!(partitioned_smc.statistic);
     (res, time)
 }

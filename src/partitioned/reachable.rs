@@ -1,6 +1,6 @@
 use super::PartitionedSmc;
 use crate::Bdd;
-use std::{iter::repeat_with, mem::take, thread::spawn};
+use std::{iter::repeat_with, mem::take, thread::spawn, time::Instant};
 use sylvan::{lace_call_back, LaceCallback, LaceWorkerContext};
 
 impl PartitionedSmc {
@@ -150,6 +150,7 @@ impl PartitionedSmc {
                     .take(tmp.len())
                     .collect();
             image.reverse();
+            // let image: Vec<Bdd> = tmp.iter().map(|x| self.fsmbdd.post_image(x)).collect();
             for i in 0..image.len() {
                 let update = &image[i] & !&reach[i];
                 reach[i] |= &update;
@@ -187,6 +188,7 @@ impl PartitionedSmc {
                 dbg!(y);
             }
             let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
+            let start = Instant::now();
             frontier
                 .iter()
                 .for_each(|x| self.fsmbdd.lace_spawn_pre_image(&mut context, x));
@@ -194,6 +196,9 @@ impl PartitionedSmc {
                 .take(frontier.len())
                 .collect();
             image.reverse();
+            // let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
+            self.statistic.image_time += start.elapsed();
+            let start = Instant::now();
             for i in 0..frontier.len() {
                 for (next, label) in self.automata.backward[i].iter() {
                     let mut update = &image[i] & &label;
@@ -205,6 +210,7 @@ impl PartitionedSmc {
                     reach[*next] = &reach[*next] | update;
                 }
             }
+            self.statistic.propagate_time += start.elapsed();
             if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
                 break;
             }
