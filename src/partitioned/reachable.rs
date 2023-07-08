@@ -66,35 +66,6 @@ impl PartitionedSmc {
         }
         reach
     }
-
-    // pub fn parallel_reachable_state(
-    //     &mut self,
-    //     from: &[Bdd],
-    //     forward: bool,
-    //     constraint: Option<&[Bdd]>,
-    // ) -> Vec<Bdd> {
-    //     assert!(from.len() == self.workers.len());
-    //     let mut workers = take(&mut self.workers);
-    //     let mut joins = Vec::new();
-    //     for worker in workers.iter_mut() {
-    //         worker.reset();
-    //     }
-    //     for (i, mut worker) in workers.into_iter().enumerate() {
-    //         let init = from[i].clone();
-    //         let constraint = constraint.map(|constraint| constraint[i].clone());
-    //         joins.push(spawn(move || {
-    //             let reach = worker.reachable(forward, init, constraint);
-    //             (reach, worker)
-    //         }));
-    //     }
-    //     let mut reach = Vec::new();
-    //     for join in joins {
-    //         let (image, worker) = join.join().unwrap();
-    //         self.workers.push(worker);
-    //         reach.push(self.manager.translocate(&image));
-    //     }
-    //     reach
-    // }
 }
 
 impl PartitionedSmc {
@@ -112,6 +83,7 @@ impl PartitionedSmc {
             if self.args.verbose {
                 dbg!(post_deep);
             }
+            let start = Instant::now();
             let mut tmp = vec![self.manager.constant(false); partitioned_len];
             for i in 0..partitioned_len {
                 for (next, label) in self.automata.forward[i].iter() {
@@ -119,6 +91,8 @@ impl PartitionedSmc {
                     tmp[*next] |= update;
                 }
             }
+            self.statistic.post_propagate_time += start.elapsed();
+            let start = Instant::now();
             for i in 0..partitioned_len {
                 let bdd = tmp[i].clone();
                 let fsmbdd = self.fsmbdd.clone();
@@ -131,6 +105,7 @@ impl PartitionedSmc {
                 });
             }
             let reach_update: Vec<(Bdd, Bdd)> = context.lace_sync_multi(partitioned_len);
+            self.statistic.post_image_time += start.elapsed();
             let mut new_frontier = Vec::new();
             reach = Vec::new();
             for (reach_bdd, update) in reach_update {
@@ -167,7 +142,7 @@ impl PartitionedSmc {
                 context.lace_spawn(move |_| fsmbdd.pre_image(&x));
             });
             let image: Vec<Bdd> = context.lace_sync_multi(partitioned_len);
-            self.statistic.image_time += start.elapsed();
+            self.statistic.pre_image_time += start.elapsed();
             let mut new_frontier = vec![self.manager.constant(false); partitioned_len];
             let start = Instant::now();
             for i in 0..partitioned_len {
@@ -183,7 +158,7 @@ impl PartitionedSmc {
                     reach[*next] = &reach[*next] | update;
                 }
             }
-            self.statistic.propagate_time += start.elapsed();
+            self.statistic.pre_propagate_time += start.elapsed();
             if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
                 break;
             }
