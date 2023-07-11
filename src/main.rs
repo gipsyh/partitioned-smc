@@ -22,7 +22,7 @@ fn main() {
     let input_file =
     // LMCS2006
     // "abp8-flat-p0.smv";
-    "prod-cons-flat-p1.smv";
+    // "prod-cons-flat-p1.smv";
     // "production-cell-flat-p1.smv";
 
     // HWMCC08
@@ -31,10 +31,10 @@ fn main() {
     // "viscoherencep5-flat.smv";
 
     // HWMCC17
-    // "cunim1ro-flat.smv"; // 0 1 3
-    // "cuhanoi7ro-flat.smv";
-    // "cuhanoi10ro-flat.smv";
-    // "cuabq2mfro-flat.smv";
+    "cunim1ro-flat.smv"; // 0 1 3
+                         // "cuhanoi7ro-flat.smv";
+                         // "cuhanoi10ro-flat.smv";
+                         // "cuabq2mfro-flat.smv";
 
     // "../MC-Benchmark/hwmcc17/single/bj08amba2g1-flat.smv";
     // "../MC-Benchmark/hwmcc17/live/cutf3ro-flat.smv";

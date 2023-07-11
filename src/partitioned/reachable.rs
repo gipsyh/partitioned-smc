@@ -34,7 +34,7 @@ impl PartitionedSmc {
         }
     }
 
-    pub fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
+    pub fn pre_reachable(&mut self, from: &[Bdd], constraint: &[Bdd]) -> Vec<Bdd> {
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
         let mut y = 0;
@@ -47,10 +47,7 @@ impl PartitionedSmc {
             let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             for i in 0..frontier.len() {
                 for (next, label) in self.automata.backward[i].iter() {
-                    let mut update = &image[i] & label;
-                    if let Some(constraint) = constraint {
-                        update &= &constraint[*next];
-                    }
+                    let mut update = &image[i] & label & &constraint[*next];
                     update &= !&reach[*next];
                     new_frontier[*next] = &new_frontier[*next] | &update;
                     reach[*next] = &reach[*next] | update;
@@ -123,7 +120,7 @@ impl PartitionedSmc {
         mut context: LaceWorkerContext,
         states: Vec<Bdd>,
         reach: &[Bdd],
-        constraint: Option<&[Bdd]>,
+        constraint: &[Bdd],
     ) -> (Vec<Bdd>, Vec<Bdd>) {
         let partitioned_len = states.len();
         let states = Arc::new(states);
@@ -131,7 +128,7 @@ impl PartitionedSmc {
             let worker = self.workers[i].clone();
             let reach = reach[i].clone();
             let states = states.clone();
-            let constraint = constraint.map(|c| c[i].clone());
+            let constraint = constraint[i].clone();
             context.lace_spawn(move |_| {
                 let (reach, mut new_frontier) = worker.propagate(reach, states, constraint);
                 if !new_frontier.is_constant(false) {
@@ -154,7 +151,7 @@ impl PartitionedSmc {
         &mut self,
         mut context: LaceWorkerContext,
         from: &[Bdd],
-        constraint: Option<&[Bdd]>,
+        constraint: &[Bdd],
     ) -> Vec<Bdd> {
         let partitioned_len = from.len();
         let mut frontier = from.to_vec();

@@ -13,18 +13,10 @@ pub struct Worker {
 
 #[allow(dead_code)]
 impl Worker {
-    pub fn propagate(
-        &self,
-        mut reach: Bdd,
-        data: Arc<Vec<Bdd>>,
-        constraint: Option<Bdd>,
-    ) -> (Bdd, Bdd) {
+    pub fn propagate(&self, mut reach: Bdd, data: Arc<Vec<Bdd>>, constraint: Bdd) -> (Bdd, Bdd) {
         let mut new_frontier = self.manager.constant(false);
         for (from, label) in self.forward.iter() {
-            let mut update = &data[*from] & label;
-            if let Some(constraint) = &constraint {
-                update &= constraint;
-            }
+            let mut update = &data[*from] & label & &constraint;
             update &= !&reach;
             new_frontier |= &update;
             reach |= update;

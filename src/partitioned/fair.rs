@@ -7,14 +7,12 @@ impl PartitionedSmc {
         let mut fair_states = vec![self.manager.constant(false); self.automata.num_state()];
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = init_reach[*state].clone();
-            // fair_states[*state] = self.manager.constant(true);
         }
         let mut x = 0;
         loop {
             x += 1;
             dbg!(x);
-            // self.pre_reachable(&fair_states, None)
-            let backward = self.pre_reachable(&fair_states, Some(init_reach));
+            let backward = self.pre_reachable(&fair_states, init_reach);
             let mut new_fair_states = Vec::new();
             for i in 0..fair_states.len() {
                 new_fair_states.push(&fair_states[i] & &backward[i]);
@@ -40,7 +38,7 @@ impl PartitionedSmc {
         loop {
             x += 1;
             dbg!(x);
-            let backward = self.lace_pre_reachable(context, &fair_states, Some(init_reach));
+            let backward = self.lace_pre_reachable(context, &fair_states, init_reach);
             fair_states.iter().zip(backward.iter()).for_each(|(x, y)| {
                 let x = x.clone();
                 let y = y.clone();
