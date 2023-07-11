@@ -22,7 +22,7 @@ fn main() {
     let input_file =
     // LMCS2006
     // "abp8-flat-p0.smv";
-    "prod-cons-flat-p2.smv";
+    "prod-cons-flat-p1.smv";
     // "production-cell-flat-p1.smv";
 
     // HWMCC08

@@ -3,11 +3,14 @@ mod reachable;
 mod statistic;
 mod worker;
 
-use self::statistic::Statistic;
+use self::{statistic::Statistic, worker::Worker};
 use crate::{automata::BuchiAutomata, command::Args, ltl::ltl_to_automata_preprocess, BddManager};
 use fsmbdd::FsmBdd;
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use sylvan::lace_run;
 
 pub struct PartitionedSmc {
@@ -16,6 +19,7 @@ pub struct PartitionedSmc {
     automata: BuchiAutomata,
     args: Args,
     statistic: Statistic,
+    workers: Vec<Arc<Worker>>,
 }
 
 impl PartitionedSmc {
@@ -25,11 +29,16 @@ impl PartitionedSmc {
         automata: BuchiAutomata,
         args: Args,
     ) -> Self {
+        let workers = Worker::create_workers(&fsmbdd, &automata)
+            .into_iter()
+            .map(|worker| Arc::new(worker))
+            .collect();
         Self {
             manager,
             fsmbdd,
             automata,
             args,
+            workers,
             statistic: Statistic::default(),
         }
     }
