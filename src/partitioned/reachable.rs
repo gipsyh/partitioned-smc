@@ -38,7 +38,7 @@ impl PartitionedSmc {
     pub fn post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
         assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
-        let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
+        let mut reach = frontier.clone();
         let mut post_deep = 0;
         loop {
             post_deep += 1;
@@ -76,7 +76,7 @@ impl PartitionedSmc {
     ) -> Vec<Bdd> {
         let mut frontier = from.to_vec();
         let partitioned_len = from.len();
-        let mut reach = vec![self.manager.constant(false); partitioned_len];
+        let mut reach = frontier.clone();
         let mut post_deep = 0;
         loop {
             post_deep += 1;
@@ -167,3 +167,76 @@ impl PartitionedSmc {
         reach
     }
 }
+
+// impl PartitionedSmc {
+//     pub fn post_work(
+//         mut context: LaceWorkerContext,
+//         id: usize,
+//         state: Bdd,
+//         fsmbdd: Arc<FsmBdd<Sylvan>>,
+//         automata: Arc<BuchiAutomata>,
+//     ) {
+//     }
+
+//     pub fn lace_post_reachable_test(
+//         &mut self,
+//         mut context: LaceWorkerContext,
+//         from: &[Bdd],
+//     ) -> Vec<Bdd> {
+//         let mut frontier = from.to_vec();
+//         let partitioned_len = from.len();
+
+//         let reach: Arc<Vec<RwLock<Bdd>>> = Arc::new(
+//             repeat_with(|| RwLock::new(self.manager.constant(false)))
+//                 .take(partitioned_len)
+//                 .collect(),
+//         );
+//         let fsmbdd = Arc::new(self.fsmbdd.clone());
+//         let automata = Arc::new(self.automata.clone());
+
+//         // let mut post_deep = 0;
+//         // loop {
+//         //     post_deep += 1;
+//         //     if self.args.verbose {
+//         //         dbg!(post_deep);
+//         //     }
+//         //     let start = Instant::now();
+//         //     let mut tmp = vec![self.manager.constant(false); partitioned_len];
+//         //     for i in 0..partitioned_len {
+//         //         for (next, label) in self.automata.forward[i].iter() {
+//         //             let update = &frontier[i] & label;
+//         //             tmp[*next] |= update;
+//         //         }
+//         //     }
+//         //     self.statistic.post_propagate_time += start.elapsed();
+//         //     let start = Instant::now();
+//         //     for i in 0..partitioned_len {
+//         //         let bdd = tmp[i].clone();
+//         //         let fsmbdd = fsmbdd.clone();
+//         //         let mut reach = reach[i].clone();
+//         //         context.lace_spawn(move |_| {
+//         //             let image = fsmbdd.post_image(&bdd);
+//         //             // let start = Instant::now();
+//         //             let update = &image & !&reach;
+//         //             reach |= &update;
+//         //             // dbg!(start.elapsed());
+//         //             (reach, update)
+//         //         });
+//         //     }
+//         //     let reach_update: Vec<(Bdd, Bdd)> = context.lace_sync_multi(partitioned_len);
+//         //     // dbg!(start.elapsed());
+//         //     self.statistic.post_image_time += start.elapsed();
+//         //     let mut new_frontier = Vec::new();
+//         //     reach = Vec::new();
+//         //     for (reach_bdd, update) in reach_update {
+//         //         reach.push(reach_bdd);
+//         //         new_frontier.push(update);
+//         //     }
+//         //     if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
+//         //         break reach;
+//         //     }
+//         //     frontier = new_frontier;
+//         // }
+//         todo!()
+//     }
+// }

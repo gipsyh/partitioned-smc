@@ -35,7 +35,6 @@ impl PartitionedSmc {
         let mut fair_states = vec![self.manager.constant(false); self.automata.num_state()];
         for state in self.automata.accepting_states.iter() {
             fair_states[*state] = init_reach[*state].clone();
-            // fair_states[*state] = self.manager.constant(true);
         }
         let mut x = 0;
         loop {

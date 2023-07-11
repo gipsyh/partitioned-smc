@@ -9,4 +9,5 @@ pub struct Statistic {
     pub pre_image_time: Duration,
     pub pre_propagate_time: Duration,
     pub propagate_time_a: Duration,
+    pub test_a: Duration,
 }

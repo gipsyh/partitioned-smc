@@ -9,13 +9,11 @@ use fsmbdd::FsmBdd;
 use smv::{bdd::SmvBdd, Expr, Prefix, Smv};
 use std::time::{Duration, Instant};
 use sylvan::lace_run;
-use worker::Worker;
 
 pub struct PartitionedSmc {
     manager: BddManager,
     fsmbdd: FsmBdd<BddManager>,
     automata: BuchiAutomata,
-    workers: Vec<Worker>,
     args: Args,
     statistic: Statistic,
 }
@@ -27,12 +25,10 @@ impl PartitionedSmc {
         automata: BuchiAutomata,
         args: Args,
     ) -> Self {
-        let workers = Worker::create_workers(&fsmbdd, &automata);
         Self {
             manager,
             fsmbdd,
             automata,
-            workers,
             args,
             statistic: Statistic::default(),
         }
@@ -44,15 +40,12 @@ impl PartitionedSmc {
             reach[*init_state] |= &self.fsmbdd.init;
         }
         let start = Instant::now();
-        let forward = if self.args.close_lace_optimize {
+        reach = if self.args.close_lace_optimize {
             self.post_reachable(&reach)
         } else {
             lace_run(|context| self.lace_post_reachable(context, &reach))
         };
         self.statistic.post_reachable_time += start.elapsed();
-        for i in 0..forward.len() {
-            reach[i] = &forward[i] | &reach[i];
-        }
         let start = Instant::now();
         let fair_states = if self.args.close_lace_optimize {
             self.fair_states(&reach)

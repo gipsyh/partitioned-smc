@@ -10,7 +10,7 @@ use nom::{
 };
 use std::{collections::HashMap, process::Command};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BuchiAutomata {
     pub manager: BddManager,
     pub symbols: HashMap<String, usize>,
