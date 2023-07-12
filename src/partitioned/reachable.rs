@@ -4,8 +4,37 @@ use std::{sync::Arc, time::Instant};
 use sylvan::LaceWorkerContext;
 
 impl PartitionedSmc {
+    pub fn post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
+        let partitioned_len = from.len();
+        let mut frontier = from.to_vec();
+        let mut reach = frontier.clone();
+        let mut reach_tmp = vec![self.manager.constant(false); partitioned_len];
+        let mut post_deep = 0;
+        loop {
+            post_deep += 1;
+            if self.args.verbose {
+                dbg!(post_deep);
+            }
+            let mut tmp = vec![self.manager.constant(false); self.automata.num_state()];
+            for i in 0..frontier.len() {
+                for (next, label) in self.automata.forward[i].iter() {
+                    let update = &frontier[i] & label & !&reach_tmp[*next];
+                    tmp[*next] |= &update;
+                    reach_tmp[*next] |= update;
+                }
+            }
+            if tmp.iter().all(|bdd| bdd.is_constant(false)) {
+                break reach;
+            }
+            let image: Vec<Bdd> = tmp.iter().map(|x| self.fsmbdd.post_image(x)).collect();
+            for i in 0..image.len() {
+                reach[i] |= &image[i];
+            }
+            frontier = image;
+        }
+    }
+
     pub fn pre_reachable(&mut self, from: &[Bdd], constraint: Option<&[Bdd]>) -> Vec<Bdd> {
-        assert!(from.len() == self.automata.num_state());
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); self.automata.num_state()];
         let mut y = 0;
@@ -34,67 +63,6 @@ impl PartitionedSmc {
         }
         reach
     }
-
-    pub fn post_reachable(&mut self, from: &[Bdd]) -> Vec<Bdd> {
-        assert!(from.len() == self.automata.num_state());
-        let mut frontier = from.to_vec();
-        let mut reach = frontier.clone();
-        let mut post_deep = 0;
-        loop {
-            post_deep += 1;
-            if self.args.verbose {
-                dbg!(post_deep);
-            }
-            let mut new_frontier = vec![self.manager.constant(false); self.automata.num_state()];
-            let mut tmp = vec![self.manager.constant(false); self.automata.num_state()];
-            for i in 0..frontier.len() {
-                for (next, label) in self.automata.forward[i].iter() {
-                    let update = &frontier[i] & label;
-                    tmp[*next] |= update;
-                }
-            }
-            let image: Vec<Bdd> = tmp.iter().map(|x| self.fsmbdd.post_image(x)).collect();
-            for i in 0..image.len() {
-                let update = &image[i] & !&reach[i];
-                reach[i] |= &update;
-                new_frontier[i] |= update;
-            }
-            if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
-                break;
-            }
-            frontier = new_frontier;
-        }
-        reach
-    }
-}
-
-impl PartitionedSmc {
-    fn lace_propagate(
-        &self,
-        mut context: LaceWorkerContext,
-        _forward: bool,
-        states: &[Bdd],
-        reach: &[Bdd],
-        constraint: Option<&[Bdd]>,
-    ) -> (Vec<Bdd>, Vec<Bdd>) {
-        let partitioned_len = states.len();
-        let states = Arc::new(states.to_vec());
-        for i in 0..partitioned_len {
-            let worker = self.workers[i].clone();
-            let reach = reach[i].clone();
-            let states = states.clone();
-            let constraint = constraint.map(|c| c[i].clone());
-            context.lace_spawn(move |_| worker.propagate(reach, states, constraint))
-        }
-        let res = context.lace_sync_multi::<(Bdd, Bdd)>(partitioned_len);
-        let mut reach = Vec::new();
-        let mut new_frontier = Vec::new();
-        for (r, f) in res.into_iter() {
-            reach.push(r);
-            new_frontier.push(f);
-        }
-        (reach, new_frontier)
-    }
 }
 
 impl PartitionedSmc {
@@ -106,6 +74,7 @@ impl PartitionedSmc {
         let mut frontier = from.to_vec();
         let partitioned_len = from.len();
         let mut reach = frontier.clone();
+        let mut tmp_reach = vec![self.manager.constant(false); partitioned_len];
         let mut post_deep = 0;
         loop {
             post_deep += 1;
@@ -116,21 +85,24 @@ impl PartitionedSmc {
             let mut tmp = vec![self.manager.constant(false); partitioned_len];
             for i in 0..partitioned_len {
                 for (next, label) in self.automata.forward[i].iter() {
-                    let update = &frontier[i] & label;
-                    tmp[*next] |= update;
+                    let update = &frontier[i] & label & !&tmp_reach[*next];
+                    tmp[*next] |= &update;
+                    tmp_reach[*next] |= update;
                 }
+            }
+            if tmp.iter().all(|bdd| bdd.is_constant(false)) {
+                break reach;
             }
             self.statistic.post_propagate_time += start.elapsed();
             let start = Instant::now();
             for i in 0..partitioned_len {
                 let bdd = tmp[i].clone();
-                let fsmbdd = self.fsmbdd.clone();
                 let mut reach = reach[i].clone();
+                let worker = self.workers[i].clone();
                 context.lace_spawn(move |_| {
-                    let image = fsmbdd.post_image(&bdd);
-                    let update = &image & !&reach;
-                    reach |= &update;
-                    (reach, update)
+                    let image = worker.fsmbdd.post_image(&bdd);
+                    reach |= &image;
+                    (reach, image)
                 });
             }
             let reach_update: Vec<(Bdd, Bdd)> = context.lace_sync_multi(partitioned_len);
@@ -141,11 +113,42 @@ impl PartitionedSmc {
                 reach.push(reach_bdd);
                 new_frontier.push(update);
             }
-            if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
-                break reach;
-            }
             frontier = new_frontier;
         }
+    }
+}
+
+impl PartitionedSmc {
+    fn lace_pre_iteration(
+        &mut self,
+        mut context: LaceWorkerContext,
+        states: Vec<Bdd>,
+        reach: &[Bdd],
+        constraint: Option<&[Bdd]>,
+    ) -> (Vec<Bdd>, Vec<Bdd>) {
+        let partitioned_len = states.len();
+        let states = Arc::new(states);
+        for i in 0..partitioned_len {
+            let worker = self.workers[i].clone();
+            let reach = reach[i].clone();
+            let states = states.clone();
+            let constraint = constraint.map(|c| c[i].clone());
+            context.lace_spawn(move |_| {
+                let (reach, mut new_frontier) = worker.propagate(reach, states, constraint);
+                if !new_frontier.is_constant(false) {
+                    new_frontier = worker.fsmbdd.pre_image(&new_frontier);
+                }
+                (reach, new_frontier)
+            })
+        }
+        let res = context.lace_sync_multi::<(Bdd, Bdd)>(partitioned_len);
+        let mut reach = Vec::new();
+        let mut new_frontier = Vec::new();
+        for (r, f) in res.into_iter() {
+            reach.push(r);
+            new_frontier.push(f);
+        }
+        (reach, new_frontier)
     }
 
     pub fn lace_pre_reachable(
@@ -154,27 +157,24 @@ impl PartitionedSmc {
         from: &[Bdd],
         constraint: Option<&[Bdd]>,
     ) -> Vec<Bdd> {
-        assert!(from.len() == self.automata.num_state());
         let partitioned_len = from.len();
         let mut frontier = from.to_vec();
         let mut reach = vec![self.manager.constant(false); partitioned_len];
         let mut y = 0;
+        for i in 0..partitioned_len {
+            let worker = self.workers[i].clone();
+            let x = frontier[i].clone();
+            context.lace_spawn(move |_| worker.fsmbdd.pre_image(&x));
+        }
+        frontier = context.lace_sync_multi(partitioned_len);
         loop {
             y += 1;
             if self.args.verbose {
                 dbg!(y);
             }
             let start = Instant::now();
-            for i in 0..partitioned_len {
-                let worker = self.workers[i].clone();
-                let x = frontier[i].clone();
-                context.lace_spawn(move |_| worker.fsmbdd.pre_image(&x));
-            }
-            let image: Vec<Bdd> = context.lace_sync_multi(partitioned_len);
-            self.statistic.pre_image_time += start.elapsed();
-            let start = Instant::now();
             let new_frontier;
-            (reach, new_frontier) = self.lace_propagate(context, false, &image, &reach, constraint);
+            (reach, new_frontier) = self.lace_pre_iteration(context, frontier, &reach, constraint);
             self.statistic.pre_propagate_time += start.elapsed();
             if new_frontier.iter().all(|bdd| bdd.is_constant(false)) {
                 break;
