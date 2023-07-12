@@ -31,7 +31,7 @@ impl PartitionedSmc {
     ) -> Self {
         let workers = Worker::create_workers(&fsmbdd, &automata)
             .into_iter()
-            .map(|worker| Arc::new(worker))
+            .map(Arc::new)
             .collect();
         Self {
             manager,
@@ -109,7 +109,7 @@ pub fn check(manager: BddManager, smv: Smv, args: Args) -> (bool, Duration) {
         &smv_bdd.symbols,
         &smv_bdd.defines,
     );
-    let mut partitioned_smc = PartitionedSmc::new(manager.clone(), fsmbdd, ba, args);
+    let mut partitioned_smc = PartitionedSmc::new(manager, fsmbdd, ba, args);
     dbg!("partitioned smc start checking");
     let start = Instant::now();
     let res = partitioned_smc.check();

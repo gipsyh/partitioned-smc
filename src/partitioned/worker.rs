@@ -15,14 +15,13 @@ pub struct Worker {
 impl Worker {
     pub fn propagate(
         &self,
-        reach: Bdd,
+        mut reach: Bdd,
         data: Arc<Vec<Bdd>>,
         constraint: Option<Bdd>,
     ) -> (Bdd, Bdd) {
         let mut new_frontier = self.manager.constant(false);
-        let mut reach = reach.clone();
         for (from, label) in self.forward.iter() {
-            let mut update = &data[*from] & &label;
+            let mut update = &data[*from] & label;
             if let Some(constraint) = &constraint {
                 update &= constraint;
             }

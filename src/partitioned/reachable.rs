@@ -47,7 +47,7 @@ impl PartitionedSmc {
             let image: Vec<Bdd> = frontier.iter().map(|x| self.fsmbdd.pre_image(x)).collect();
             for i in 0..frontier.len() {
                 for (next, label) in self.automata.backward[i].iter() {
-                    let mut update = &image[i] & &label;
+                    let mut update = &image[i] & label;
                     if let Some(constraint) = constraint {
                         update &= &constraint[*next];
                     }
@@ -107,13 +107,12 @@ impl PartitionedSmc {
             }
             let reach_update: Vec<(Bdd, Bdd)> = context.lace_sync_multi(partitioned_len);
             self.statistic.post_image_time += start.elapsed();
-            let mut new_frontier = Vec::new();
+            frontier.clear();
             reach = Vec::new();
             for (reach_bdd, update) in reach_update {
                 reach.push(reach_bdd);
-                new_frontier.push(update);
+                frontier.push(update);
             }
-            frontier = new_frontier;
         }
     }
 }

@@ -13,8 +13,8 @@ fn trans_expr_to_ltl_rec(expr: &Expr) -> Expr {
         Expr::CaseExpr(_) => todo!(),
         Expr::InfixExpr(infix, left, right) => Expr::InfixExpr(
             infix.clone(),
-            Box::new(trans_expr_to_ltl_rec(&left)),
-            Box::new(trans_expr_to_ltl_rec(&right)),
+            Box::new(trans_expr_to_ltl_rec(left)),
+            Box::new(trans_expr_to_ltl_rec(right)),
         ),
     }
 }

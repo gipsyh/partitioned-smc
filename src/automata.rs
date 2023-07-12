@@ -161,7 +161,7 @@ impl BuchiAutomata {
         for (ident, id) in symbols {
             defines.insert(ident.clone(), manager.ith_var(*id));
         }
-        let mut ba = BuchiAutomata::parse(ba.as_ref(), &manager, &defines);
+        let mut ba = BuchiAutomata::parse(ba.as_ref(), manager, &defines);
         dbg!(ba.num_state());
         ba.symbols = symbols.clone();
         ba
